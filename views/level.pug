@@ -1,0 +1,300 @@
+head
+	<link href="https://fonts.googleapis.com/css?family=Roboto:300" rel="stylesheet">
+	title Level creator
+	style.
+		*{
+			margin: 0 0;
+			padding: 0 0;
+			font-family: 'Roboto';
+		}
+
+		#color-picker{
+			position: fixed;
+			top: 10px;
+			right: 10px;
+		}
+
+		#color-icon {
+			position: fixed;
+		}
+
+		#frame {
+			position: fixed;
+		}
+
+		#saveButton {
+			position: fixed;
+			right: 10px;
+			bottom: 10px;
+			padding: 15 50;
+			font-size: 30px;
+			background-color: red;
+			color: white;
+			cursor: pointer;
+		}
+
+	body 
+		canvas#color-picker
+		canvas#color-icon
+		canvas#frame
+		div#saveButton Save
+
+		script(src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous")
+		script(src = '/gl-matrix.js')
+		script(src = '/scripts.js')
+
+		script.
+
+			var colorPickerSize = { width: 300, height: 300 }, 
+				colorIconSize = { width: 100, height: 100 }, 
+				frameSize = { width: 1000, height: 800 }, 
+				frameTranslate = { x: 500, y: 400 }, 
+				redChannel = 100, 
+				blueChannel = 20, 
+				greenChannel = 220, 
+				alphaChannel = 255
+
+			function createHexagon(x, y){
+				return { originX: x, originY: y, color: [ redChannel, greenChannel, blueChannel, alphaChannel ], dirs: [ -1, -1, -1, -1, -1, -1 ] }
+			}
+
+			var data = {
+				sideLength: 50, 
+				graph: [
+					createHexagon(0, 0)
+				]
+			}
+
+			function drawColorPicker(){
+				$('#color-picker').css('width', colorPickerSize.width)
+				$('#color-picker').css('height', colorPickerSize.height)
+
+				$('#color-picker')[0].width = colorPickerSize.width
+				$('#color-picker')[0].height = colorPickerSize.height
+
+				var g = $('#color-picker')[0].getContext('2d')
+	
+				var posRed = [ 30, 270 ]
+				var posBlue = [ 270, 270 ]
+				var posGreen = [ 150, 30 ] 
+
+				var f = colorPickerSize.width
+				for(var i = 0;i < colorPickerSize.width;i++){
+					for(var j = 0;j < colorPickerSize.height;j++){
+						var red, green, blue, alpha
+
+						red = green = blue = alpha = 0
+
+						var dred = Math.max(0, -vec2.distance([ i, j ], posRed) + 230), 
+							dblue = Math.max(0, -vec2.distance([ i, j ], posBlue) + 230), 
+							dgreen = Math.max(0, -vec2.distance([ i, j ], posGreen) + 230)
+						var dsum = dred + dgreen + dblue
+
+						red = (dsum - dred) / dsum
+						green = (dsum - dgreen) / dsum
+						blue = (dsum - dblue) / dsum
+
+						red = red * 255 | 0
+						green = green * 255 | 0
+						blue = blue * 255 | 0
+						alpha = 255
+
+						g.fillStyle = 'rgba(' + red + ',' + green + ',' + blue + ',' + alpha + ')'
+						g.fillRect(i, j, 1, 1)
+					}
+				}
+			}
+
+			function updateColorIcon(){
+				$('#color-icon').css('width', colorIconSize.width)
+				$('#color-icon').css('height', colorIconSize.height)
+
+				$('#color-icon').css('top', colorPickerSize.height + 20)
+				$('#color-icon').css('right', (colorPickerSize.width - colorIconSize.width) / 2 + 10)
+
+				$('#color-icon')[0].width = colorIconSize.width
+				$('#color-icon')[0].height = colorIconSize.height
+
+				var g = $('#color-icon')[0].getContext('2d')
+				g.fillStyle = 'rgba(' + redChannel + ',' + greenChannel + ',' + blueChannel + ',' + alphaChannel + ')'
+				g.fillRect(0, 0, colorIconSize.width, colorIconSize.height)
+
+				g.fillStyle = 'white'
+				g.textBaseline = 'top'
+				g.font = '15px Arial'
+				g.fillText('red: ' + redChannel, 10, 10)
+				g.fillText('green: ' + greenChannel, 10, 25)
+				g.fillText('blue: ' + blueChannel, 10, 40)
+				g.fillText('alpha: ' + alphaChannel, 10, 55)		
+			}
+
+			function drawHexagon(g, hexagon, sideLength){
+				var x = hexagon.originX, y = hexagon.originY
+
+				g.translate(x, y)
+
+				var a = sideLength
+				var b = a * Math.sqrt(3) / 2.0
+				var c = a / 2
+
+				g.strokeStyle = 'black'
+				g.lineWidth = 7
+				g.fillStyle = rgbaString(hexagon.color)
+
+				g.beginPath()
+				g.moveTo(a, 0)
+				g.lineTo(c, b)
+				g.lineTo(-c, b)
+				g.lineTo(-a, 0)
+				g.lineTo(-c, -b)
+				g.lineTo(c, -b)
+				g.closePath()
+
+				g.fill()
+				g.stroke()
+
+				for(var i = 0;i < 6;i++){
+					if(hexagon.dirs[i] == -1){
+						var vec = vecByDir(sideLength, i)
+						g.moveTo(vec[0] / 5 * 3, vec[1] / 5 * 3)
+						g.lineTo(vec[0] / 7 * 6, vec[1] / 7 * 6)
+						g.stroke()
+					}
+				}
+
+				g.translate(-x, -y)
+			}
+
+			function updateMap(){
+				$('#frame').css('width', frameSize.width)
+				$('#frame').css('height', frameSize.height)
+
+				$('#frame').css('top', 10)
+				$('#frame').css('left', 10)
+
+				$('#frame')[0].width = frameSize.width
+				$('#frame')[0].height = frameSize.height
+
+				var g = $('#frame')[0].getContext('2d')
+
+				g.strokeStyle = 'black'
+				g.strokeRect(0, 0, frameSize.width, frameSize.height)
+
+				g.translate(frameTranslate.x, frameTranslate.y)
+
+				for(var i = 0;i < data.graph.length;i++){
+					drawHexagon(g, data.graph[i], data.sideLength)
+				}
+			}
+
+			function updateHexGraph(hexagon){
+				for(var dir = 0;dir < 6;dir++){
+					var vec = vecByDir(data.sideLength, dir)
+
+					for(var j = 0;j < data.graph.length;j++){
+						if(isInsideHexagon(data.graph[j], data.sideLength, [ hexagon.originX + vec[0], hexagon.originY + vec[1] ])){
+							hexagon.dirs[dir] = dir
+							data.graph[j].dirs[backDir(dir)] = data.graph.length
+						}
+					}
+				}
+			}
+
+			function processClick(x, y){
+				for (var i = 0;i < data.graph.length;i++){
+					if(isInsideHexagon(data.graph[i], data.sideLength, [ x, y ])){
+						data.graph[i].color[0] = redChannel
+						data.graph[i].color[1] = greenChannel
+						data.graph[i].color[2] = blueChannel
+						data.graph[i].color[3] = alphaChannel
+						return
+					}
+
+					for(var j = 0;j < 6;j++){
+						if(data.graph[i].dirs[j] == -1){
+							var vec = vecByDir(data.sideLength, j)
+							var nHex = createHexagon(data.graph[i].originX + vec[0], data.graph[i].originY + vec[1])
+
+							if(isInsideHexagon(nHex, data.sideLength, [ x, y ])){
+								//data.graph[i].dirs[j] = data.graph.length
+								//nHex.dirs[backDir(j)] = i
+								updateHexGraph(nHex)
+								data.graph.push(nHex)
+								return
+							}
+						}
+					}
+				}
+			}
+
+			function loadSavedLevel(){
+				return new Promise(function (resolve, reject){
+					$.ajax({
+						url: '/loadLevel', 
+						method: 'post', 
+						success: function (level){
+							resolve(level)
+							console.log(level)
+							console.log(data)
+
+							data = level
+							data.sideLength = parseInt(data.sideLength)
+
+							for(var i = 0;i < data.graph.length;i++){
+								data.graph[i].originX = parseInt(data.graph[i].originX)
+								data.graph[i].originY = parseInt(data.graph[i].originY)
+
+								for(var j = 0;j < 4;j++)
+									data.graph[i].color[j] = parseInt(data.graph[i].color[j])
+
+								for(var j = 0;j < 6;j++)
+									data.graph[i].dirs[j] = parseInt(data.graph[i].dirs[j])
+							}
+
+							console.log(data)
+
+							updateMap()
+						}, 
+						error: function(){
+							alert('Error while loading level')
+						}
+					})
+				})
+			}
+
+			$(document).ready(function(){
+
+				loadSavedLevel()
+
+				drawColorPicker()
+				updateColorIcon()
+				
+				updateMap()
+
+				$('#frame').on('click', function(e){
+					processClick(e.offsetX - frameTranslate.x, e.offsetY - frameTranslate.y)
+
+					updateMap()
+				})
+
+				$('#color-picker').on('click', function(e){
+					var rgba = $('#color-picker')[0].getContext('2d').getImageData(e.offsetX, e.offsetY, 1, 1).data
+					redChannel = rgba[0]
+					greenChannel = rgba[1] 
+					blueChannel = rgba[2] 
+					alphaChannel = rgba[3]
+
+					updateColorIcon()
+				})
+
+				$('#saveButton').on('click', function(){
+					$.ajax({
+						url: '/saveData', 
+						data: { level: data }, 
+						method: 'post', 
+						success: function(){
+							alert('Saved')
+						}
+					})
+				})
+			})

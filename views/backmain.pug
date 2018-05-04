@@ -1,0 +1,294 @@
+html
+	head
+		style.
+			*{
+				margin: 0 0;
+				padding: 0 0;
+			}
+
+	body
+		canvas#frame
+
+		script(src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous")
+		script(src = '/gl-matrix.js')
+		script(src = '/scripts.js')
+
+		script.
+
+			$(document).ready(function(){
+				var gl = undefined
+				var shaderProgram = undefined
+				var startTime = undefined
+
+				var uTimeLocation = undefined
+				var uResolutionPosition = undefined
+				var lightPosLocation = undefined
+				var wMatrixLocation = undefined 
+				var eyeMatrixLocation = undefined
+				var projMatrixLocation = undefined
+
+				var vbo, ibo
+
+				var wMatrix = new Float32Array(16), 
+					eyeMatrix = new Float32Array(16), 
+					projMatrix = new Float32Array(16)
+
+				var camera = {
+					position: [ 2, 4, 4 ], 
+					eyeDirection: [0, -0.4999999999999999, -0.8660254037844386], //[ 0, 0, -1 ], 
+					up: [ 0, 1, 0 ], 
+					getEye: function(){
+						return [ this.position[0] + this.eyeDirection[0], this.position[1] + this.eyeDirection[1], this.position[2] + this.eyeDirection[2] ]
+					}
+				}
+
+				var dataArray = []
+				var indecies = []
+
+				function addTriangle(a, b, c, n){
+					var index = dataArray.length / 6
+					dataArray.push(a[0], a[1], a[2], n[0], n[1], n[2])
+					dataArray.push(b[0], b[1], b[2], n[0], n[1], n[2])
+					dataArray.push(c[0], c[1], c[2], n[0], n[1], n[2])
+					indecies.push(index, index + 1, index + 2)
+				}
+
+				function addRectangle(a, b, c, d){
+					var n = [ 0, 0, 0 ]
+					vec3.cross(n, getVector(a, c), getVector(a, b))
+					vec3.normalize(n, n)
+					addTriangle(a, b, c, n)
+					addTriangle(a, c, d, n)
+				}
+
+				function createPillar(height, x, y, z){
+					var vrs = [
+						[ x, y, z ], 
+						[ x, y, z - 1 ], 
+						[ x + 1, y, z - 1 ], 
+						[ x + 1, y, z ], 
+
+						[ x, y + height, z ], 
+						[ x, y + height, z - 1 ], 
+						[ x + 1, y + height, z - 1 ], 
+						[ x + 1, y + height, z ]
+					]
+
+					addRectangle(vrs[0], vrs[4], vrs[7], vrs[3])
+					addRectangle(vrs[3], vrs[7], vrs[6], vrs[2])
+					//addRectangle(vrs[2], vrs[6], vrs[5], vrs[1])
+					addRectangle(vrs[1], vrs[5], vrs[4], vrs[0])
+
+					//addRectangle(vrs[1], vrs[0], vrs[3], vrs[2])
+					addRectangle(vrs[4], vrs[5], vrs[6], vrs[7])
+				}
+
+				var map = []
+				var mapSize = { width: 50, height: 50 }
+
+				for(var i = 0;i < mapSize.height;i++){
+					map.push([])
+					for(var j = 0;j < mapSize.width;j++){
+						map[i].push(pseudorandHeight((i) / mapSize.height, (j - mapSize.width / 2) / mapSize.width))
+					}
+				}
+
+				for (var i = 0;i < map.length;i++){
+					for(var j = 0;j < map[i].length;j++){
+						createPillar(map[i][j], j, 0, -i)
+					}
+				}
+
+				console.log(dataArray)
+				console.log(indecies)
+
+				function resizeFrame(){
+					var frame = $('#frame')[0]
+					frame.width = window.innerWidth
+					frame.height = window.innerHeight
+
+					if(gl){
+						gl.viewport(0, 0, frame.width, frame.height)
+					}
+				}
+
+				function loadResource(name){
+					return new Promise(function(resolve, reject){
+						$.ajax({
+
+							url: '/res', 
+							method: 'post', 
+							data: { name: name }, 
+							success: function(data){
+								resolve(data)
+							}
+
+						})
+					})
+				}
+
+				async function initGraphics(){
+					var frame = $('#frame')[0]
+					gl = frame.getContext('webgl')
+					if(!gl){
+						console.log('Error')
+						return
+					}
+
+					var vertexShader, fragmentShader
+
+					await loadResource('vertexShader.glsl').then(function(res){
+						vertexShader = res
+						return loadResource('fragmentShader.glsl')
+					}).then(function(res){
+						fragmentShader = res
+					})
+
+					var level = await loadSavedLevel()
+					//console.log(level)
+
+					var vShader = gl.createShader(gl.VERTEX_SHADER)
+					var fShader = gl.createShader(gl.FRAGMENT_SHADER)
+
+					gl.shaderSource(vShader, vertexShader)
+					gl.shaderSource(fShader, fragmentShader)
+
+					gl.compileShader(vShader)
+
+					if (!gl.getShaderParameter(vShader, gl.COMPILE_STATUS)) {
+						console.error('Error compiling vertex shader!');
+						console.error('Shader error info: ', gl.getShaderInfoLog(vShader));
+					}
+
+					gl.compileShader(fShader)
+
+					if (!gl.getShaderParameter(fShader, gl.COMPILE_STATUS)) {
+						console.error('Error compiling fragment shader!');
+						console.error('Shader error info: ', gl.getShaderInfoLog(fShader));
+					}
+
+					var shader = gl.createProgram()
+					gl.attachShader(shader, vShader)
+					gl.attachShader(shader, fShader)
+
+					gl.linkProgram(shader)
+					gl.validateProgram(shader)
+
+					if (!gl.getProgramParameter(shader, gl.VALIDATE_STATUS)) {
+						console.error('Error validating program ', gl.getProgramInfoLog(shader));
+						return;
+					}
+
+					vbo = gl.createBuffer()
+					gl.bindBuffer(gl.ARRAY_BUFFER, vbo)
+					gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(dataArray), gl.STATIC_DRAW)
+
+					ibo = gl.createBuffer()
+					gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo)
+					gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indecies), gl.STATIC_DRAW)
+
+
+					var vertexAttrPos = gl.getAttribLocation(shader, 'position'), 
+						normalAttrPos = gl.getAttribLocation(shader, 'normal')
+
+					gl.vertexAttribPointer(vertexAttrPos, 3, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 0)
+					gl.enableVertexAttribArray(vertexAttrPos)
+
+					gl.vertexAttribPointer(normalAttrPos, 3, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT)
+					gl.enableVertexAttribArray(normalAttrPos)
+
+					shaderProgram = shader
+
+					gl.deleteShader(vShader)
+					gl.deleteShader(fShader)
+
+					uTimePosition = gl.getUniformLocation(shader, 'uTime')
+					uResolutionPosition = gl.getUniformLocation(shader, 'uResolution')
+					wMatrixLocation = gl.getUniformLocation(shader, 'wMatrix')
+					eyeMatrixLocation = gl.getUniformLocation(shader, 'eyeMatrix')
+					projMatrixLocation = gl.getUniformLocation(shader, 'projMatrix')
+					lightPosLocation = gl.getUniformLocation(shader, 'lightPos')
+
+					startTime = Date.now()
+
+					gl.clearColor(.95, .95, .95, 1.0)
+					gl.enable(gl.DEPTH_TEST)
+
+					mat4.perspective(projMatrix, 45 * Math.PI / 180.0, frame.width / frame.height, 0.1, 1000.0)
+
+					$(window).on('keydown', (ev) => {
+						if(ev.keyCode == 87) {
+							camera.position[2] -= 1
+						} else if(ev.keyCode == 83) {
+							camera.position[2] += 1
+						} else if(ev.keyCode == 65) {
+							camera.position[0] -= 1
+						} else if(ev.keyCode == 68) {
+							camera.position[0] += 1
+						} else if(ev.keyCode == 81) {
+							camera.position[1] += 1
+						} else if(ev.keyCode == 69) {
+							camera.position[1] -= 1
+						} else if(ev.keyCode == 38) { // up arrow
+							vec3.rotateX(camera.eyeDirection, camera.eyeDirection, [ 0, 0, 0 ], Math.PI / 24.0)
+							vec3.rotateX(camera.up, camera.up, [ 0, 0, 0 ], Math.PI / 24.0)
+						} else if(ev.keyCode == 40) { // down arrow
+							vec3.rotateX(camera.eyeDirection, camera.eyeDirection, [ 0, 0, 0 ], -Math.PI / 24.0)
+							vec3.rotateX(camera.up, camera.up, [ 0, 0, 0 ], -Math.PI / 24.0)
+						}
+					})
+
+					render()
+				}
+
+				var lastTime = 0
+				var frameCounter = 0
+				var frameTime = 0.0
+
+				function render(){
+					var startFrameTime = Date.now()
+
+					if((Date.now() / 1000 | 0) == lastTime){
+						frameCounter++
+					} else {
+						console.log("fps: " + frameCounter + " average frame time: " + ((frameTime / frameCounter) | 0) + " ms")
+						frameCounter = 1
+						frameTime = 0.0
+						lastTime = (Date.now() / 1000 | 0)
+					}
+
+					var timeDelta = Date.now() - startTime
+
+					gl.useProgram(shaderProgram)
+
+					gl.uniform1f(uTimePosition, timeDelta)
+					gl.uniform2fv(uResolutionPosition, [ frame.width, frame.height ])
+					gl.uniform3fv(lightPosLocation, [ 0, 5, 0 ])
+
+					mat4.identity(wMatrix)
+					mat4.rotate(wMatrix, wMatrix, 0.0, [ 0, 1, 0 ])
+
+					mat4.lookAt(eyeMatrix, camera.position, camera.getEye(), camera.up)
+
+					mat4.perspective(projMatrix, 45 * Math.PI / 180.0, frame.width / frame.height, 0.1, 1000.0)
+
+					gl.uniformMatrix4fv(wMatrixLocation, gl.FALSE, wMatrix)
+					gl.uniformMatrix4fv(eyeMatrixLocation, gl.FALSE, eyeMatrix)
+					gl.uniformMatrix4fv(projMatrixLocation, gl.FALSE, projMatrix)
+
+					gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo)
+					gl.bindBuffer(gl.ARRAY_BUFFER, vbo)
+					
+					gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+					gl.drawElements(gl.TRIANGLES, indecies.length, gl.UNSIGNED_SHORT, 0)
+					
+					frameTime += Date.now() - startFrameTime
+
+					requestAnimationFrame(render)
+				}
+
+				$(window).resize(resizeFrame)
+
+				resizeFrame()
+				initGraphics()
+			})
