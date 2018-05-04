@@ -36,32 +36,7 @@ html
 			var mainVBO, mainIBO
 			var camera
 
-			function createPlanet(position, gravity, speed, size, color){
-				if(!speed)
-					speed = [ 0., 0., 0. ]
-				if(!size)
-					size = 1.
-				if(!color)
-					color = [ 1., 1., 1. ]
-				return { position: position, size: size, color: color, gravity: gravity, speed: speed }
-			}
-
-			var gameModel = [
-				createPlanet([ 0, 0, 0 ], 5, [ 0., 0., 0. ], .3, [ 1, 0, 0 ]), 
-				createPlanet([ 5, 0, 0 ], 5, [ 0., 5., 0. ], .3, [ 0, 1, 0 ]), 
-				//createPlanet([ 0, 10, 0 ], 100, [ 0., 0., 1. ], 1, [ 0, 0, 1 ])
-			]
-
-			var storedPositions = [], stpos = 0
-
-			for(var i = 0;i < 50;i++){
-				storedPositions[i] = [ 0, 0, 0 ]
-				storedPositions[i][0] = gameModel[1].position[0] - gameModel[0].position[0]
-				storedPositions[i][1] = gameModel[1].position[1] - gameModel[0].position[1]
-				storedPositions[i][2] = gameModel[1].position[2] - gameModel[0].position[2]
-			}
-
-			var step = .01
+			var mainModel
 
 			function renderWorld(){
 				gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer1)
@@ -80,53 +55,19 @@ html
 				gl.enableVertexAttribArray(positionAttr)
 				gl.vertexAttribPointer(normalAttr, 3, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT)
 				gl.enableVertexAttribArray(normalAttr)
-
 				mat4.perspective(projectionMatrix, 45 * Math.PI / 180.0, frame.width / frame.height, 0.1, 1000.0)
-
 				mat4.identity(worldMatrix)
 
-				camera.setFollowPoint(gameModel[0].position)
-				
 				shaderProgram.setUniform('eyeMatrix', camera.getEyeMatrix(), 'mat4')
 				shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
 				shaderProgram.setUniform('projectionMatrix', projectionMatrix, 'mat4')
+
+
+				shaderProgram.setUniform('paintColor', [ .5, .5, .5 ], 'v3')
+				shaderProgram.setUniform('size', 1, 'f')
 				shaderProgram.setUniform('lightPosition', camera.getPosition(), 'v3')
 
-				for(var i = 0;i < gameModel.length;i++){
-					var tr = [
-						gameModel[i].position[0], 
-						gameModel[i].position[1], 
-						gameModel[i].position[2], 
-					]
-					mat4.translate(worldMatrix, worldMatrix, tr)
-
-					shaderProgram.setUniform('size', gameModel[i].size, 'f')
-					shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
-					shaderProgram.setUniform('paintColor', gameModel[i].color, 'v3')
-
-					gl.drawElements(gl.TRIANGLES, model.indecies.length * 3, gl.UNSIGNED_SHORT, 0)
-
-					mat4.translate(worldMatrix, worldMatrix, [ -tr[0], -tr[1], -tr[2] ])
-				}
-
-				for(var i = 0;i < storedPositions.length;i++){
-					var tr = [
-						storedPositions[i][0] + gameModel[0].position[0], 
-						storedPositions[i][1] + gameModel[0].position[1], 
-						storedPositions[i][2] + gameModel[0].position[2], 
-					]
-					mat4.translate(worldMatrix, worldMatrix, tr)
-
-					shaderProgram.setUniform('paintColor', [ .1, .1, .5 ], 'v3')
-					shaderProgram.setUniform('size', .2, 'f')
-					shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
-
-					gl.drawElements(gl.TRIANGLES, model.indecies.length * 3, gl.UNSIGNED_SHORT, 0)
-
-					mat4.translate(worldMatrix, worldMatrix, [ -tr[0], -tr[1], -tr[2] ])
-				}
-
-				//gl.drawElements(gl.TRIANGLES, model.indecies.length * 3, gl.UNSIGNED_SHORT, 0)
+				mainModel.render()
 
 				mainVBO.unbind()
 				mainIBO.unbind()
@@ -167,43 +108,8 @@ html
 			}
 
 			var tick = 0
-
 			function loop(){
 				++tick
-
-				for(var i = 0;i < gameModel.length;i++){
-					var acceleration = [ 0, 0, 0 ]
-					for(var j = 0;j < gameModel.length;j++){
-						if(i == j)
-							continue
-						var r = vec3.distance(gameModel[i].position, gameModel[j].position)
-						var force = gameModel[i].gravity * gameModel[j].gravity / r * r
-						var vc = getVector(gameModel[i].position, gameModel[j].position)
-						vec3.normalize(vc, vc)
-						vc[0] *= force / gameModel[i].gravity
-						vc[1] *= force / gameModel[i].gravity
-						vc[2] *= force / gameModel[i].gravity
-						vec3.add(acceleration, acceleration, vc)
-					}
-					acceleration[0] *= .001
-					acceleration[1] *= .001
-					acceleration[2] *= .001
-					vec3.add(gameModel[i].speed, gameModel[i].speed, acceleration)
-				}
-
-				for(var i = 0;i < gameModel.length;i++){
-					gameModel[i].position[0] += gameModel[i].speed[0] * step
-					gameModel[i].position[1] += gameModel[i].speed[1] * step
-					gameModel[i].position[2] += gameModel[i].speed[2] * step
-				}
-
-				if(tick % 100 == 0){
-					for(var i = 0;i < 3;i++)
-						storedPositions[stpos][i] = gameModel[1].position[i] - gameModel[0].position[i]
-					stpos++
-					if(stpos >= storedPositions.length)
-						stpos = 0
-				}
 
 				renderWorld()				
 
@@ -247,6 +153,7 @@ html
 				
 				mainVBO = createVBO()	
 				mainIBO = createIBO()
+				mainModel = createModel(mainVBO, mainIBO, model.indecies.length * 3)
 
 				var DATA = createDataWithNormals(model.vertices, model.indecies)
 
@@ -270,7 +177,7 @@ html
 				frame.width = window.innerWidth
 				frame.height = window.innerHeight
 
-				camera = createFollowCamera()
+				camera = createCamera()
 
 				$(window).on('keydown', function(ev){
 					if(ev.keyCode == 87){
@@ -287,22 +194,6 @@ html
 						camera.rotateVertical(-Math.PI / 24.0)
 					}
 				})
-
-				setInterval(function(){
-					var text = 'position: [ ' + formatFloat(camera.getPosition()[0]) + ' ' + formatFloat(camera.getPosition()[1]) + ' ' + formatFloat(camera.getPosition()[2]) + ' ]<br>' + 
-						'up: [ ' + formatFloat(camera.up[0]) + ' ' + formatFloat(camera.up[1]) + ' ' + formatFloat(camera.up[2]) + ' ]<br>' 
-
-					for(var i = 0;i < gameModel.length;i++){
-						text += 'object ' + i + ': [' + formatFloat(gameModel[i].position[0]) + ' ' + formatFloat(gameModel[i].position[1]) + ' ' + formatFloat(gameModel[i].position[1]) + ']<br>'
-					}
-
-					for(var i = 0;i < storedPositions.length;i++){
-						text += 'stpos ' + i + ': [ ' + formatFloat(storedPositions[i][0]) + ' ' + formatFloat(storedPositions[i][1]) + ' ' + formatFloat(storedPositions[i][2]) + ' ]<br>'
-					}
-
-					text += 'tick: ' + tick + '<br>'
-					//$('.menu').html(text)
-				}, 500)
 
 				initGL()
 			})

@@ -445,3 +445,14 @@ function createRenderBuffer(width, height, frameBufferID){
 
 	return id
 }
+
+function createModel(vbo, ibo, size){
+	return {
+		ibo: ibo, 
+		vbo: vbo, 
+		size: size, 
+		render: function(){
+			gl.drawElements(gl.TRIANGLES, this.size, gl.UNSIGNED_SHORT, 0)
+		}
+	}
+}

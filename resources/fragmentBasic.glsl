@@ -50,7 +50,7 @@ void main(){
 
 	vec3 normal = normalize(Normal);
 	vec3 ray = normalize(FragPos - lightPosition);
-	float intensity = max(.3, abs(dot(ray, normal)));
+	float intensity = max(.2, abs(dot(ray, normal)));
 
 	//color = color * circle(p);// * intensity(p);
 	//color = color * step(.5, fract(p.x)) * step(.5, fract(p.y));
