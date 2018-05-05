@@ -75,15 +75,18 @@ html
 				if(level){
 					for(var i = 0;i < level.graph.length;i++){
 						var oX = level.graph[i].originX, 
-							oY = level.graph[i].originY
-						
+							oY = level.graph[i].originY, 
+							red = level.graph[i].color[0] / 255., 
+							green = level.graph[i].color[1] / 255., 
+							blue = level.graph[i].color[2] / 255.
+
 						mat4.translate(worldMatrix, worldMatrix, [ -oX, 0, -oY ])
 						shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
+						shaderProgram.setUniform('paintColor', [ red, green, blue ], 'v3')
 
 						mainModel.render()
 
 						mat4.translate(worldMatrix, worldMatrix, [ oX, 0, oY ])
-						break
 					}
 				}
 

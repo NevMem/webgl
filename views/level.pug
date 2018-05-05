@@ -220,8 +220,6 @@ head
 							var nHex = createHexagon(data.graph[i].originX + vec[0], data.graph[i].originY + vec[1])
 
 							if(isInsideHexagon(nHex, data.sideLength, [ x, y ])){
-								//data.graph[i].dirs[j] = data.graph.length
-								//nHex.dirs[backDir(j)] = i
 								updateHexGraph(nHex)
 								data.graph.push(nHex)
 								return
@@ -231,47 +229,15 @@ head
 				}
 			}
 
-			function loadSavedLevel(){
-				return new Promise(function (resolve, reject){
-					$.ajax({
-						url: '/loadLevel', 
-						method: 'post', 
-						success: function (level){
-							resolve(level)
-							if(level.sideLength){
-								console.log(level)
-								console.log(data)
-
-								data = level
-								data.sideLength = parseInt(data.sideLength)
-
-								for(var i = 0;i < data.graph.length;i++){
-									data.graph[i].originX = parseInt(data.graph[i].originX)
-									data.graph[i].originY = parseInt(data.graph[i].originY)
-
-									for(var j = 0;j < 4;j++)
-										data.graph[i].color[j] = parseInt(data.graph[i].color[j])
-
-									for(var j = 0;j < 6;j++)
-										data.graph[i].dirs[j] = parseInt(data.graph[i].dirs[j])
-								}
-
-								console.log(data)
-
-								updateMap()
-							}
-						}, 
-						error: function(){
-							alert('Error while loading level')
-						}
-					})
-				})
+			async function initLevel(){
+				var loadedData = await loadSavedLevel()
+				data = loadedData
+				updateMap()
 			}
 
 			$(document).ready(function(){
-
-				loadSavedLevel()
-
+				initLevel()
+				
 				drawColorPicker()
 				updateColorIcon()
 				

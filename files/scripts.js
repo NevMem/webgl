@@ -85,17 +85,17 @@ function loadSavedLevel(scale){
 			method: 'post', 
 			success: function (level){
 				var data = level
-				data.sideLength = parseInt(data.sideLength) / scale
+				data.sideLength = parseFloat(data.sideLength) / scale
 
 				for(var i = 0;i < data.graph.length;i++){
-					data.graph[i].originX = parseInt(data.graph[i].originX) / scale
-					data.graph[i].originY = parseInt(data.graph[i].originY) / scale
+					data.graph[i].originX = parseFloat(data.graph[i].originX) / scale
+					data.graph[i].originY = parseFloat(data.graph[i].originY) / scale
 
 					for(var j = 0;j < 4;j++)
-						data.graph[i].color[j] = parseInt(data.graph[i].color[j])
+						data.graph[i].color[j] = parseFloat(data.graph[i].color[j])
 
 					for(var j = 0;j < 6;j++)
-						data.graph[i].dirs[j] = parseInt(data.graph[i].dirs[j])
+						data.graph[i].dirs[j] = parseFloat(data.graph[i].dirs[j])
 				}
 
 				resolve(data)
@@ -503,6 +503,24 @@ function createVAO(){
 	}
 }
 
+function hexPoint(size, index){
+	var a = size / 2.
+	var b = Math.sqrt(size * size - a * a)
+
+	if(index == 0)
+		return [ size, 0 ]
+	if(index == 1)
+		return [ a, b ]
+	if(index == 2)
+		return [ -a, b ]
+	if(index == 3)
+		return [ -size, 0 ]
+	if(index == 4)
+		return [ -a, -b ]
+	if(index == 5)
+		return [ a, -b ]
+}
+
 function createHexPlate(){
 	var ret = {
 		vertices: [], 
@@ -511,10 +529,11 @@ function createHexPlate(){
 
 	var normal = [ 0, 1, 0 ]
 	var vrtx = []
+
 	for(var i = 0;i < 6;i++){
-		let x, y = 0, z
-		z = vecByDir(1, i)[0]
-		x = vecByDir(1, i)[1]
+		let x = 0, y = 0, z = 0
+		x = hexPoint(1., i)[0]
+		z = hexPoint(1., i)[1]
 		vrtx.push(x, y, z)
 		vrtx = vrtx.concat(normal)
 	}
