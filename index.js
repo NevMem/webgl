@@ -128,13 +128,13 @@ function parseModel(data){
 app.post('/loadModel', function(req, res){
 	var name = req.body.name
 
-	if(name == 'model.ply' || name == 'enemy.ply' || name == 'cube.ply' || name == 'sphere.ply'){
+	if(name == 'model.ply' || name == 'enemy.ply' || 
+		name == 'cube.ply' || name == 'sphere.ply' || 
+		name == 'hex.ply' || name == 'hexPlate.ply'){
 		if(!stored[name]){
 			var data = fs.readFileSync(__dirname + '/models/' + name, 'utf-8')
-			//res.send(parseModel(data))
 			stored[name] = parseModel(data)
 		}
-
 		res.send(stored[name])
 	}
 })

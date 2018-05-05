@@ -12,19 +12,19 @@ html
 				left: 0px;
 				bottom: 0px;
 				padding: 10px 10px;
-				color: white;
+				color: black;
 			}
 
 	body
 		canvas#frame
 		div.menu
 
-		script(src="https://code.jquery.com/jquery-3.3.1.min.js")
+		script(src = "https://code.jquery.com/jquery-3.3.1.min.js")
 		script(src = '/gl-matrix.js')
 		script(src = '/scripts.js')
 
 		script.
-			var frame, gl, shaderProgram, postProcessingShaderProgram, quadVBO
+			var frame, gl, shaderProgram, postProcessingShaderProgram, gridShader, quadVBO
 			var frameBuffer1, bufferTexture1, 
 				frameBuffer2, bufferTexture2
 			var depthBuffer
@@ -33,10 +33,24 @@ html
 			var eyeMatrix = new Float32Array(16), 
 				worldMatrix = new Float32Array(16), 
 				projectionMatrix = new Float32Array(16)
-			//var mainVBO, mainIBO, mainVAO
 			var camera
+			var mainModel, grid
 
-			var mainModel
+			var level = undefined
+
+			function renderGrid(){
+				gridShader.start()
+
+				gridShader.setUniform('eyeMatrix', camera.getEyeMatrix(), 'mat4')
+				gridShader.setUniform('worldMatrix', worldMatrix, 'mat4')
+				gridShader.setUniform('projectionMatrix', projectionMatrix, 'mat4')
+
+				gridShader.setUniform('paintColor', [ .2, .2, .2 ], 'v3')
+
+				grid.render(gl.LINES)
+
+				gridShader.stop()
+			}
 
 			function renderWorld(){
 				gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer1)
@@ -45,21 +59,33 @@ html
 				gl.enable(gl.DEPTH_TEST)
 				gl.depthFunc(gl.LESS)
 
+				renderGrid()
+
 				shaderProgram.start()
 
-				mat4.perspective(projectionMatrix, 45 * Math.PI / 180.0, frame.width / frame.height, 0.1, 1000.0)
 				mat4.identity(worldMatrix)
-
 				shaderProgram.setUniform('eyeMatrix', camera.getEyeMatrix(), 'mat4')
 				shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
 				shaderProgram.setUniform('projectionMatrix', projectionMatrix, 'mat4')
 
-
-				shaderProgram.setUniform('paintColor', [ .5, .5, .5 ], 'v3')
-				shaderProgram.setUniform('size', 1, 'f')
+				shaderProgram.setUniform('paintColor', [ .5, .9, .5 ], 'v3')
+				shaderProgram.setUniform('size', 1., 'f')
 				shaderProgram.setUniform('lightPosition', camera.getPosition(), 'v3')
 
-				mainModel.render()
+				if(level){
+					for(var i = 0;i < level.graph.length;i++){
+						var oX = level.graph[i].originX, 
+							oY = level.graph[i].originY
+						
+						mat4.translate(worldMatrix, worldMatrix, [ -oX, 0, -oY ])
+						shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
+
+						mainModel.render()
+
+						mat4.translate(worldMatrix, worldMatrix, [ oX, 0, oY ])
+						break
+					}
+				}
 
 				shaderProgram.stop()
 			}
@@ -113,7 +139,7 @@ html
 			async function initGL(){
 				gl = frame.getContext('webgl2')	
 					
-				var vShaderText, fShaderText, ftShaderText, vtShaderText
+				var vShaderText, fShaderText, ftShaderText, vtShaderText, gridVertexShaderText, gridFragmentShaderText
 
 				await loadResource('vertexBasic.glsl').then(function(data){
 					vShaderText = data
@@ -126,6 +152,12 @@ html
 					return loadResource('vertexTexture.glsl')
 				}).then(function(data){
 					vtShaderText = data
+					return loadResource('gridVertexShader.glsl')
+				}).then(function(data){
+					gridVertexShaderText = data
+					return loadResource('gridFragmentShader.glsl')
+				}).then(function(data){
+					gridFragmentShaderText = data
 				})
 
 				shaderProgram = createShaderProgram(vShaderText, fShaderText)
@@ -134,16 +166,26 @@ html
 				postProcessingShaderProgram = createShaderProgram(vtShaderText, ftShaderText)
 				postProcessingShaderProgram.initUniforms([ 'uResolution', 'tx1', 'dir' ])
 
-				gl.clearColor(.1, .1, .1, 1.0)
+				gridShader = createShaderProgram(gridVertexShaderText, gridFragmentShaderText)
+				gridShader.initUniforms([ 'paintColor', 'projectionMatrix', 'eyeMatrix', 'worldMatrix' ])
+
+				gl.clearColor(.9, .9, .9, 1.0)
 
 				quadVBO = createVBO()
 				quadVBO.setData([ -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1 ])
 			
-				model = await loadModel('sphere.ply')
-			
-				var DATA = createDataWithNormals(model.vertices, model.indecies)
+				//model = await loadModel('hexPlate.ply')
+				//var DATA = createDataWithNormals(model.vertices, model.indecies)
 
-				mainModel = createModel(DATA)
+				var DATA = createHexPlate()
+	
+				mainModel = createModel(DATA, 
+					[
+						{ layoutPosition: 0, componentLength: 3, stride: 6, offset: 0 }, 
+						{ layoutPosition: 1, componentLength: 3, stride: 6, offset: 3 }
+					])
+
+				grid = createModel(createGrid(10), [{ layoutPosition: 0, componentLength: 3, stride: 3, offset: 0 }])
 
 				bufferTexture1 = createTexture(frame.width, frame.height)
 				frameBuffer1 = createFramebuffer(bufferTexture1)
@@ -153,6 +195,10 @@ html
 				
 				depthBuffer = createRenderBuffer(frame.width, frame.height, frameBuffer1)
 
+				level = await loadSavedLevel(20.)
+
+				mat4.perspective(projectionMatrix, 45 * Math.PI / 180.0, frame.width / frame.height, 0.1, 1000.0)
+				
 				loop()
 			}
 
@@ -179,6 +225,18 @@ html
 						camera.rotateVertical(-Math.PI / 24.0)
 					}
 				})
+
+				setInterval(function(){
+					var text = 'Debug Menu<br>'
+
+					var x = camera.position[0], y = camera.position[1], z = camera.position[2]
+					text += 'Position: [ ' + formatFloat(x) + ' ' + formatFloat(y) + ' ' + formatFloat(z) + ' ]<br>'
+
+					x = camera.direction[0], y = camera.direction[1], z = camera.direction[2]
+					text += 'Direction: [' + formatFloat(x) + ' ' + formatFloat(y) + ' ' + formatFloat(z) + ' ]<br>'
+
+					$('.menu').html(text)
+				}, 200)
 
 				initGL()
 			})

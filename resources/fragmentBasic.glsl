@@ -23,5 +23,7 @@ void main(){
 	vec3 ray = normalize(FragPos - lightPosition);
 	float intensity = max(.2, abs(dot(ray, normal)));
 
+	intensity = 1.;
+
 	fragColor = vec4(color * intensity, 1.);
 }

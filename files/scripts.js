@@ -446,7 +446,13 @@ function createRenderBuffer(width, height, frameBufferID){
 	return id
 }
 
-function createModel(data){
+/*
+	mapping: [
+		{ layoutPosition, componentLength, stride, offset }
+	]
+*/
+
+function createModel(data, mapping){
 	var vbo = createVBO(), ibo = createIBO()
 
 	vbo.setData(data.vertices)
@@ -459,20 +465,25 @@ function createModel(data){
 	vbo.bind()
 	ibo.bind()
 
-	gl.enableVertexAttribArray(0)
-	gl.enableVertexAttribArray(1)
+	for(var i = 0;i < mapping.length;i++){
+		gl.enableVertexAttribArray(mapping[i].layoutPosition)
 
-	gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 0 * Float32Array.BYTES_PER_ELEMENT)
-	gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FLASE, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT)
+		gl.vertexAttribPointer(mapping[i].layoutPosition, 
+			mapping[i].componentLength, gl.FLOAT, gl.FALSE, 
+			mapping[i].stride * Float32Array.BYTES_PER_ELEMENT, 
+			mapping[i].offset * Float32Array.BYTES_PER_ELEMENT)
+	}
 
 	vao.unbind()
 
 	return {
 		vao: vao, 
 		size: data.indecies.length, 
-		render: function(){
+		render: function(type){
+			if(!type)
+				type = gl.TRIANGLES
 			vao.bind()
-			gl.drawElements(gl.TRIANGLES, this.size, gl.UNSIGNED_SHORT, 0)
+			gl.drawElements(type, this.size, gl.UNSIGNED_SHORT, 0)
 			vao.unbind()
 		}
 	}
@@ -490,4 +501,64 @@ function createVAO(){
 			gl.bindVertexArray(null)
 		}
 	}
+}
+
+function createHexPlate(){
+	var ret = {
+		vertices: [], 
+		indecies: []
+	}
+
+	var normal = [ 0, 1, 0 ]
+	var vrtx = []
+	for(var i = 0;i < 6;i++){
+		let x, y = 0, z
+		z = vecByDir(1, i)[0]
+		x = vecByDir(1, i)[1]
+		vrtx.push(x, y, z)
+		vrtx = vrtx.concat(normal)
+	}
+
+	ret.vertices = vrtx
+
+	ret.indecies.push(0, 1, 2, 0, 4, 5, 2, 3, 4, 0, 2, 4)
+
+	console.log(ret)
+
+	return ret
+}
+
+function createGrid(size){
+	var ret = {
+		vertices: [], 
+		indecies: []
+	}
+
+	for(var i = -size + 1;i < size;i++){
+		var ptr = ret.vertices.length / 3
+		ret.vertices.push(i, 0, size)
+		ret.vertices.push(i, 0, -size)
+		ret.indecies.push(ptr, ptr + 1)
+
+		ret.vertices.push(i - .1, 0, size - .3)
+		ret.indecies.push(ptr, ptr + 2)
+
+		ret.vertices.push(i + .1, 0, size - .3)
+		ret.indecies.push(ptr, ptr + 3)
+	}
+
+	for(var i = -size + 1;i < size;i++){
+		var ptr = ret.vertices.length / 3
+		ret.vertices.push(size, 0, i)
+		ret.vertices.push(-size, 0, i)
+		ret.indecies.push(ptr, ptr + 1)
+		
+		ret.vertices.push(size -.3, 0, i - .1)
+		ret.indecies.push(ptr, ptr + 2)
+
+		ret.vertices.push(size -.3, 0, i + .1)
+		ret.indecies.push(ptr, ptr + 3)
+	}
+
+	return ret
 }
