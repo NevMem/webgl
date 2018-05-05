@@ -33,7 +33,7 @@ html
 			var eyeMatrix = new Float32Array(16), 
 				worldMatrix = new Float32Array(16), 
 				projectionMatrix = new Float32Array(16)
-			var mainVBO, mainIBO
+			var mainVBO, mainIBO, mainVAO
 			var camera
 
 			var mainModel
@@ -46,15 +46,7 @@ html
 				gl.depthFunc(gl.LESS)
 
 				shaderProgram.start()
-				mainVBO.bind()
-				mainIBO.bind()
 
-				var positionAttr = shaderProgram.getAttributeLocation('position'),
-					normalAttr = shaderProgram.getAttributeLocation('normal')
-				gl.vertexAttribPointer(positionAttr, 3, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 0)
-				gl.enableVertexAttribArray(positionAttr)
-				gl.vertexAttribPointer(normalAttr, 3, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT)
-				gl.enableVertexAttribArray(normalAttr)
 				mat4.perspective(projectionMatrix, 45 * Math.PI / 180.0, frame.width / frame.height, 0.1, 1000.0)
 				mat4.identity(worldMatrix)
 
@@ -67,10 +59,10 @@ html
 				shaderProgram.setUniform('size', 1, 'f')
 				shaderProgram.setUniform('lightPosition', camera.getPosition(), 'v3')
 
+				mainVAO.bind()
 				mainModel.render()
+				mainVAO.unbind()
 
-				mainVBO.unbind()
-				mainIBO.unbind()
 				shaderProgram.stop()
 			}
 
@@ -86,6 +78,7 @@ html
 				postProcessingShaderProgram.setUniform('dir', [ 0, 0 ], 'v2')
 				quadVBO.bind()
 				loc = postProcessingShaderProgram.getAttributeLocation('position')
+				gl.enableVertexAttribArray(loc)
 				gl.vertexAttribPointer(loc, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0)
 				gl.drawArrays(gl.TRIANGLES, 0, 6)
 				quadVBO.unbind()
@@ -143,13 +136,13 @@ html
 				postProcessingShaderProgram = createShaderProgram(vtShaderText, ftShaderText)
 				postProcessingShaderProgram.initUniforms([ 'uResolution', 'tx1', 'dir' ])
 
-				gl.clearColor(.0, .0, .0, 1.0)
+				gl.clearColor(.1, .1, .1, 1.0)
 				//gl.enable(gl.DEPTH_TEST)
 
 				quadVBO = createVBO()
 				quadVBO.setData([ -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1 ])
 			
-				model = await loadModel('sphere.ply')
+				model = await loadModel('cube.ply')
 				
 				mainVBO = createVBO()	
 				mainIBO = createIBO()
@@ -159,6 +152,26 @@ html
 
 				mainVBO.setData(DATA.vertices)
 				mainIBO.setData(DATA.indecies)
+
+				mainVAO = createVAO()
+				mainVAO.bind()
+
+				mainVBO.bind()
+				mainIBO.bind()
+
+				var positionAttr = shaderProgram.getAttributeLocation('position'), 
+					normalAttr = shaderProgram.getAttributeLocation('normal')
+				
+				gl.enableVertexAttribArray(positionAttr)
+				gl.enableVertexAttribArray(normalAttr)
+
+				gl.vertexAttribPointer(positionAttr, 3, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 0 * Float32Array.BYTES_PER_ELEMENT)
+				gl.vertexAttribPointer(normalAttr, 3, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT)
+
+				mainVAO.unbind()
+
+				mainIBO.unbind()
+				mainVBO.unbind()
 
 				bufferTexture1 = createTexture(frame.width, frame.height)
 				frameBuffer1 = createFramebuffer(bufferTexture1)

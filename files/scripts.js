@@ -456,3 +456,17 @@ function createModel(vbo, ibo, size){
 		}
 	}
 }
+
+function createVAO(){
+	var id = gl.createVertexArray()
+
+	return {
+		vao: id, 
+		bind: function(){
+			gl.bindVertexArray(this.vao)
+		}, 
+		unbind: function(){
+			gl.bindVertexArray(null)
+		}
+	}
+}
