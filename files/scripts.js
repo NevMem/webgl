@@ -446,16 +446,37 @@ function createRenderBuffer(width, height, frameBufferID){
 	return id
 }
 
-function createModel(vbo, ibo, size){
+function createModel(data){
+	var vbo = createVBO(), ibo = createIBO()
+
+	vbo.setData(data.vertices)
+	ibo.setData(data.indecies)
+	
+	var vao = createVAO()
+
+	vao.bind()
+
+	vbo.bind()
+	ibo.bind()
+
+	gl.enableVertexAttribArray(0)
+	gl.enableVertexAttribArray(1)
+
+	gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 0 * Float32Array.BYTES_PER_ELEMENT)
+	gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FLASE, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT)
+
+	vao.unbind()
+
 	return {
-		ibo: ibo, 
-		vbo: vbo, 
-		size: size, 
+		vao: vao, 
+		size: data.indecies.length, 
 		render: function(){
+			vao.bind()
 			gl.drawElements(gl.TRIANGLES, this.size, gl.UNSIGNED_SHORT, 0)
+			vao.unbind()
 		}
 	}
-}
+} 
 
 function createVAO(){
 	var id = gl.createVertexArray()
