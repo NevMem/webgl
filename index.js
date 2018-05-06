@@ -1,7 +1,8 @@
 var express = require('express'), 
 	colors = require('colors'), 
 	fs = require('fs'), 
-	bParser = require('body-parser')
+	bParser = require('body-parser'), 
+	url = require('url')
 
 var app = express()
 
@@ -56,8 +57,10 @@ app.post('/loadLevel', function(req, res){
 
 var stored = []
 
-function parseModel(data){
-	var res = { vertices: [], indecies: [], isInvalid: false }
+function parseModelPly(data){
+	var start = process.hrtime()
+
+	var res = { format: 'v1', vertices: [], indecies: [], isInvalid: false }
 
 	data = data.split(/\n/g)
 
@@ -122,22 +125,86 @@ function parseModel(data){
 		}
 	}
 
+	var finish = process.hrtime(start)
+	console.log('Parsed file')
+	console.log('Time: ' + ((finish[0] * 1e9 + finish[1]) / 1e6) + ' ms')
+
 	return res
 }
 
-app.post('/loadModel', function(req, res){
-	var name = req.body.name
+function parseModelObj(data){
+	var start = process.hrtime()
+
+	var res = { format: 'v2', vertices: [], indecies: [], isInvalid: false }
+
+	data = data.split('\n')
+
+	var vrtx = []
+	var nrmls = []
+
+	for (var i = 0;i < data.length;i++){
+		var line = data[i].split(' ')
+		if(line.length == 0 || line[0] == '#' || line == 'o')
+			continue
+
+		if(line[0] == 'v'){
+			vrtx.push([ parseFloat(line[1]), parseFloat(line[2]), parseFloat(line[3]) ])
+		} else if(line[0] == 'vn') {
+			nrmls.push([ parseFloat(line[1]), parseFloat(line[2]), parseFloat(line[3]) ])
+		} else if(line[0] == 'f') {
+			if(line.length != 4)
+				res.isInvalid = true
+			for(var j = 1;j < line.length;j++){
+				var vertex, normal, buffer = line[j].split('//')
+				vertex = parseInt(buffer[0]) - 1
+				normal = parseInt(buffer[1]) - 1
+
+				for(var k = 0;k < 3;k++)
+					res.vertices.push(vrtx[vertex][k])
+				for(var k = 0;k < 3;k++)
+					res.vertices.push(nrmls[normal][k])
+				res.indecies.push(res.vertices.length / 6 - 1)
+			}
+		}
+	}
+
+	var finish = process.hrtime(start)
+
+	console.log('Parsed file')
+	console.log('Time: ' + ((finish[0] * 1e9 + finish[1]) / 1e6) + ' ms')
+
+	return res
+}
+
+var loadModelHandler = function(req, res){
+	var name
+
+	if(req.method == 'POST')
+		name = req.body.name
+	else
+		name = url.parse(req.url, true).query.name
 
 	if(name == 'model.ply' || name == 'enemy.ply' || 
 		name == 'cube.ply' || name == 'sphere.ply' || 
 		name == 'hex.ply' || name == 'hexPlate.ply'){
 		if(!stored[name]){
 			var data = fs.readFileSync(__dirname + '/models/' + name, 'utf-8')
-			stored[name] = parseModel(data)
+			stored[name] = parseModelPly(data)
 		}
 		res.send(stored[name])
-	}
-})
+	} else 
+	if(name == 'monkey.obj'){
+		if(!stored[name]){
+			var data = fs.readFileSync(__dirname + '/models/' + name, 'utf-8')
+			stored[name] = parseModelObj(data)
+		}
+		res.send(stored[name])	
+	} else 
+		res.send('model with name: ' + name + ' not found')
+}
+
+app.post('/loadModel', loadModelHandler)
+app.get('/loadModel', loadModelHandler)
 
 app.listen(80, function(err){
 	if(!err)

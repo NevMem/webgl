@@ -179,8 +179,8 @@ html
 			
 				//model = await loadModel('hexPlate.ply')
 				//var DATA = createDataWithNormals(model.vertices, model.indecies)
-
-				var DATA = createHexPlate()
+				//var DATA = createHexPlate()
+				var DATA = await loadModel('monkey.obj')
 	
 				mainModel = createModel(DATA, 
 					[
@@ -197,11 +197,11 @@ html
 				frameBuffer2 = createFramebuffer(bufferTexture2)
 				
 				depthBuffer = createRenderBuffer(frame.width, frame.height, frameBuffer1)
-
-				level = await loadSavedLevel(20.)
-
 				mat4.perspective(projectionMatrix, 45 * Math.PI / 180.0, frame.width / frame.height, 0.1, 1000.0)
 				
+				gl.lineWidth(1)
+
+				level = await loadSavedLevel(20.)
 				loop()
 			}
 
@@ -211,7 +211,7 @@ html
 				frame.width = window.innerWidth
 				frame.height = window.innerHeight
 
-				camera = createCamera()
+				camera = createCamera([ 0, 2, -14 ])
 
 				$(window).on('keydown', function(ev){
 					if(ev.keyCode == 87){
