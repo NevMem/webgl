@@ -300,12 +300,18 @@ function createCamera(position, direction, up){
 			this.position[0] += this.direction[0] * distance
 			this.position[1] += this.direction[1] * distance
 			this.position[2] += this.direction[2] * distance
+		}, 
+		reset: function(){
+			this.direction = [ 0, 0, 1 ]
+			this.up = [ 0, 1, 0 ]
 		},
 		rotateHorizontal: function(angle){
-			mat4.identity(this.bufferMatrix)
+			vec3.rotateY(this.direction, this.direction, [ 0, 0, 0 ], angle)
+			vec3.rotateY(this.up, this.up, [ 0, 0, 0 ], angle)
+			/*mat4.identity(this.bufferMatrix)
 			this.bufferMatrix[15] = 0
 			mat4.rotate(this.bufferMatrix, this.bufferMatrix, angle, this.up)
-			vec3.transformMat4(this.direction, this.direction, this.bufferMatrix)
+			vec3.transformMat4(this.direction, this.direction, this.bufferMatrix)*/
 		}, 
 		rotateVertical: function(angle){
 			angle = -angle
@@ -580,4 +586,33 @@ function createGrid(size){
 	}
 
 	return ret
+}
+
+function toRadians(deg){
+	return Math.PI * deg / 180.0
+}
+
+class MapUnit{
+	constructor(id){
+		this.id = id
+		this.color = [ 0, 192, 0 ]
+		this.setColor = (color) => { this.color = color }
+	}
+}
+class Cell extends MapUnit{
+	constructor(id){
+		super(id)
+
+		this.type = 'cell'
+		this.connections = []
+		for(var i = 0;i < 6;i++)
+			this.connections.push(undefined)
+	}
+}
+class Bridge extends MapUnit{
+	constructor(id){
+		super(id)
+
+		this.type = 'bridge'
+	}
 }

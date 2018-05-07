@@ -21,9 +21,11 @@ void main(){
 
 	vec3 normal = normalize(Normal);
 	vec3 ray = normalize(FragPos - lightPosition);
-	float intensity = max(.2, abs(dot(ray, normal)));
+	float intensity = abs(dot(ray, normal));
 
 	//intensity = 1.;
 
-	fragColor = vec4(color * intensity, 1.);
+	float lowestIntensity = .7;
+
+	fragColor = vec4(color * (lowestIntensity + (1. - lowestIntensity) * intensity), 1.);
 }

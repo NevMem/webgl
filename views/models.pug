@@ -1,0 +1,35 @@
+html
+	head
+		meta(charset = 'utf-8')
+		style.
+			* {
+				margin: 0 0;
+				padding: 0 0;
+				font-family: sans-serif;
+			}
+
+		link(rel = 'stylesheet' href = 'https://stackpath.bootstrapcdn.com/bootswatch/4.1.1/lux/bootstrap.min.css')
+	body
+		br
+		div.container
+			h1 Models
+
+			br
+
+			table.table
+				tr.table-info
+					td Name
+					td Format
+					td Vertecies size
+					td Indecies size
+					td isInvalid
+					td Reload link
+				for model in Object.keys(models)
+					tr
+						td #{model}
+						td #{models[model].format}
+						td #{models[model].vertices.length}
+						td #{models[model].indecies.length}
+						td #{models[model].isInvalid}
+						td 
+							a(href = '/reloadModel?modelName=' + model) Reload

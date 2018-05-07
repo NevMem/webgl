@@ -34,9 +34,11 @@ html
 				worldMatrix = new Float32Array(16), 
 				projectionMatrix = new Float32Array(16)
 			var camera
-			var mainModel, grid
+			var hexagon, bridge, grid
 
 			var level = undefined
+
+			var pos = 1, bridgeDir = 2
 
 			function renderGrid(){
 				gridShader.start()
@@ -81,10 +83,29 @@ html
 							blue = level.graph[i].color[2] / 255.
 
 						mat4.translate(worldMatrix, worldMatrix, [ -oX, 0, -oY ])
+						mat4.scale(worldMatrix, worldMatrix, [ 1., (i + 1) / 10., 1. ])
 						shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
 						shaderProgram.setUniform('paintColor', [ red, green, blue ], 'v3')
 
-						mainModel.render()
+						hexagon.render()
+
+						mat4.scale(worldMatrix, worldMatrix, [ 1., 10. / (i + 1), 1. ])
+
+						if(pos == i) { 
+							var scaller = [ .1, .1, .1 ], shift = vecByDir(1., bridgeDir)
+
+							shift = [ shift[0] / 2., 1., shift[1] / 2. ]							
+
+							mat4.translate(worldMatrix, worldMatrix, shift)
+							mat4.scale(worldMatrix, worldMatrix, scaller)
+							shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
+							
+							bridge.render()
+
+							mat4.scale(worldMatrix, worldMatrix, [ 1. / scaller[0], 1. / scaller[1], 1. / scaller[2] ])
+							vec3.negate(shift, shift)
+							mat4.translate(worldMatrix, worldMatrix, shift)
+						}
 
 						mat4.translate(worldMatrix, worldMatrix, [ oX, 0, oY ])
 					}
@@ -180,9 +201,15 @@ html
 				//model = await loadModel('hexPlate.ply')
 				//var DATA = createDataWithNormals(model.vertices, model.indecies)
 				//var DATA = createHexPlate()
-				var DATA = await loadModel('monkey.obj')
+				var DATA = await loadModel('hex.obj')
 	
-				mainModel = createModel(DATA, 
+				hexagon = createModel(DATA, 
+					[
+						{ layoutPosition: 0, componentLength: 3, stride: 6, offset: 0 }, 
+						{ layoutPosition: 1, componentLength: 3, stride: 6, offset: 3 }
+					])
+
+				bridge = createModel(await loadModel('bridge.obj'), 
 					[
 						{ layoutPosition: 0, componentLength: 3, stride: 6, offset: 0 }, 
 						{ layoutPosition: 1, componentLength: 3, stride: 6, offset: 3 }
@@ -226,6 +253,55 @@ html
 						camera.rotateVertical(Math.PI / 24.0)
 					} else if(ev.keyCode == 40) {
 						camera.rotateVertical(-Math.PI / 24.0)
+					} else if(ev.keyCode == 82) {
+						camera.reset()
+					}	
+				})
+
+				$(window).on('mousewheel', function(e){
+					var ev = e.originalEvent
+					if(ev.deltaY > 0){
+						bridgeDir++
+					} else {	
+						bridgeDir--
+					}
+
+					bridgeDir = (bridgeDir + 6) % 6
+				})
+
+				var mouseX = undefined, mouseY = undefined, dragging = false
+				$('#frame').on('mousedown', function(ev){
+					mouseX = ev.offsetX
+					mouseY = ev.offsetY
+					dragging = false
+				})
+
+				$('#frame').on('mousemove', function(ev){
+					if(mouseX && mouseY) {
+						dragging = true
+
+						var deltaX = ev.offsetX - mouseX, 
+							deltaY = ev.offsetY - mouseY
+
+						camera.rotateVertical(toRadians(45.0 * deltaY / frame.height))
+						camera.rotateHorizontal(toRadians(45.0 / frame.height * frame.width * deltaX / frame.width))
+
+						mouseX = ev.offsetX
+						mouseY = ev.offsetY
+					}
+				})
+
+				$('#frame').on('mouseup', function(ev){
+					mouseX = ev.offsetX
+					mouseY = ev.offsetY
+					if(dragging){
+						mouseX = undefined
+						mouseY = undefined
+					} else {
+
+						// Process click
+						// TODO
+
 					}
 				})
 
@@ -237,6 +313,9 @@ html
 
 					x = camera.direction[0], y = camera.direction[1], z = camera.direction[2]
 					text += 'Direction: [' + formatFloat(x) + ' ' + formatFloat(y) + ' ' + formatFloat(z) + ' ]<br>'
+
+					x = camera.up[0], y = camera.up[1], z = camera.up[2]
+					text += 'Up: [' + formatFloat(x) + ' ' + formatFloat(y) + ' ' + formatFloat(z) + ' ]<br>'
 
 					$('.menu').html(text)
 				}, 200)

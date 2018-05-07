@@ -46,7 +46,7 @@ app.post('/saveData', function(req, res){
 	level = JSON.stringify(level)
 
 	fs.writeFileSync('currentLevel.json', level, 'utf-8')
-	fs.writeFileSync((Date.now()) + '.json', level, 'utf-8')
+	//fs.writeFileSync((Date.now()) + '.json', level, 'utf-8')
 
 	res.send('updated')
 })
@@ -193,7 +193,7 @@ var loadModelHandler = function(req, res){
 		}
 		res.send(stored[name])
 	} else 
-	if(name == 'monkey.obj'){
+	if(name == 'monkey.obj' || name == 'bridge.obj' || name == 'hex.obj'){
 		if(!stored[name]){
 			var data = fs.readFileSync(__dirname + '/models/' + name, 'utf-8')
 			stored[name] = parseModelObj(data)
@@ -205,6 +205,32 @@ var loadModelHandler = function(req, res){
 
 app.post('/loadModel', loadModelHandler)
 app.get('/loadModel', loadModelHandler)
+
+app.get('/models', function(req, res){
+	res.render('models', { models: stored })
+})
+
+app.get('/reloadModel', function(req, res){
+	var name = url.parse(req.url, true).query.modelName
+
+	if(name == 'model.ply' || name == 'enemy.ply' || 
+		name == 'cube.ply' || name == 'sphere.ply' || 
+		name == 'hex.ply' || name == 'hexPlate.ply'){
+		if(!stored[name]){
+			var data = fs.readFileSync(__dirname + '/models/' + name, 'utf-8')
+			stored[name] = parseModelPly(data)
+		}
+		res.send(stored[name])
+	} else 
+	if(name == 'monkey.obj' || name == 'bridge.obj' || name == 'hex.obj'){
+		if(!stored[name]){
+			var data = fs.readFileSync(__dirname + '/models/' + name, 'utf-8')
+			stored[name] = parseModelObj(data)
+		}
+		res.send(stored[name])	
+	} else 
+		res.send('model with name: ' + name + ' not found')
+})
 
 app.listen(80, function(err){
 	if(!err)
