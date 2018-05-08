@@ -678,6 +678,11 @@ class MapContainer {
 					this.data.splice(i, 1)
 					break
 				}
+			for(var i = 0;i < this.data.length;i++)
+				if(this.data[i].type == 'cell')
+					for(var j = 0;j < 6;j++)
+						if(this.data[i].connection[j] == id)
+							this.data[i].connection[j] = undefined
 		}
 
 		this.renderCell = function(g, cell){
@@ -716,7 +721,99 @@ class MapContainer {
 			}
 		}
 
-		this.click = function(x, y){
+		this.colorClick = function(x, y) {
+			for(var i = 0;i < this.data.length;i++){
+				if(this.data[i].type == 'cell'){
+					x -= this.data[i].x 
+					y -= this.data[i].y
+
+					if(x * x + y * y <= this.sideLength * this.sideLength * 3 / 4) {
+						this.data[i].color = this.paintColor
+						return
+					}
+
+					x += this.data[i].x
+					y += this.data[i].y
+				} else if(this.data[i].type == 'bridge') {
+
+				}
+			}
+		}
+
+		this.getIdInPos = function(x, y) {
+			for(var i = 0;i < this.data.length;i++){
+				if(this.data[i].type == 'cell'){
+					x -= this.data[i].x 
+					y -= this.data[i].y
+					if(x * x + y * y <= this.sideLength * this.sideLength * 3 / 4)
+						return this.data[i].id
+					x += this.data[i].x
+					y += this.data[i].y
+				}
+			}
+			return undefined
+		}
+
+		this.createClick = function(x, y) {
+			for(var i = 0;i < this.data.length;i++){
+				if(this.data[i].type == 'cell'){
+					x -= this.data[i].x 
+					y -= this.data[i].y
+					
+					if (x * x + y * y <= this.sideLength * this.sideLength * 2) {
+						var vc = [ x, y ]
+						for(var j = 0;j < 6;j++){
+							if(crossVec2(vc, this.cellPoints[j]) < 0 && 
+								crossVec2(this.cellPoints[(j + 1) % 6], vc) < 0 && 
+								this.data[i].connection[j] == undefined){
+
+								let nPoint = this.getCellCoords(j)
+
+								this.data[i].connection[j] = this.addNewCell(this.data[i].x + nPoint[0], this.data[i].y + nPoint[1])
+								this.updateConnectionsBy(this.get(this.data[i].connection[j]))
+
+								return
+							}
+						}
+					}
+
+					x += this.data[i].x
+					y += this.data[i].y
+				} 
+			}
+		}
+
+		this.bridge = function(firstId, secondId){
+			console.log(firstId, secondId)
+
+			let cell1 = this.get(firstId), 
+				cell2 = this.get(secondId)
+
+			var bridgeId = this.getId()
+
+			this.data.push(new Bridge(bridgeId, firstId, secondId))
+		}
+
+		this.deleteClick = function(x, y){
+			for(var i = 0;i < this.data.length;i++){
+				if(this.data[i].type == 'cell'){
+					x -= this.data[i].x 
+					y -= this.data[i].y
+
+					if(x * x + y * y <= this.sideLength * this.sideLength * 3 / 4) {
+						this.delete(this.data[i].id)
+						return
+					}
+
+					x += this.data[i].x
+					y += this.data[i].y
+				} else if(this.data[i].type == 'bridge') {
+
+				}
+			}
+		}
+
+		this.click = function(x, y){ // Deprecated
 			for(var i = 0;i < this.data.length;i++){
 				if(this.data[i].type == 'cell'){
 					x -= this.data[i].x 
@@ -751,7 +848,21 @@ class MapContainer {
 		}
 
 		this.renderBridge = function(g, bridge) {
+			let cell1 = this.get(bridge.connect[0]), 
+				cell2 = this.get(bridge.connect[1])
 
+			g.lineWidth = 10
+
+			let vc = [ cell2.x - cell1.x, cell2.y - cell1.y ]
+			vec2.normalize(vc, vc)
+			vc[0] *= 13
+			vc[1] *= 13
+
+			g.strokeStyle = rgbaString(bridge.color)
+			g.beginPath()
+			g.moveTo(cell1.x + vc[0], cell1.y + vc[1])
+			g.lineTo(cell2.x - vc[0], cell2.y - vc[1])
+			g.stroke()
 		}
  
 		this.render = function(g){

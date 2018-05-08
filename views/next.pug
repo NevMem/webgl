@@ -38,8 +38,6 @@ html
 
 			var level = undefined
 
-			var pos = 1, bridgeDir = 2
-
 			function renderGrid(){
 				gridShader.start()
 
@@ -84,31 +82,39 @@ html
 								blue = level.data[i].color[2] / 255.
 
 							mat4.translate(worldMatrix, worldMatrix, [ -oX, 0, -oY ])
-							mat4.scale(worldMatrix, worldMatrix, [ 1. * level.sideLength, (i + 1) / 10. * level.sideLength, 1. * level.sideLength ])
+							mat4.scale(worldMatrix, worldMatrix, [ 1. * level.sideLength, 1. * level.sideLength, 1. * level.sideLength ])
 							shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
 							shaderProgram.setUniform('paintColor', [ red, green, blue ], 'v3')
 
 							hexagon.render()
 
-							mat4.scale(worldMatrix, worldMatrix, [ 1. / level.sideLength, 10. / (i + 1) / level.sideLength, 1. / level.sideLength ])
-
-							if(pos == i) { 
-								var scaller = [ .1, .1, .1 ], shift = vecByDir(1., bridgeDir)
-
-								shift = [ shift[0] / 2., 1., shift[1] / 2. ]							
-
-								mat4.translate(worldMatrix, worldMatrix, shift)
-								mat4.scale(worldMatrix, worldMatrix, scaller)
-								shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
-								
-								bridge.render()
-
-								mat4.scale(worldMatrix, worldMatrix, [ 1. / scaller[0], 1. / scaller[1], 1. / scaller[2] ])
-								vec3.negate(shift, shift)
-								mat4.translate(worldMatrix, worldMatrix, shift)
-							}
+							mat4.scale(worldMatrix, worldMatrix, [ 1. / level.sideLength, 1. / level.sideLength, 1. / level.sideLength ])
 
 							mat4.translate(worldMatrix, worldMatrix, [ oX, 0, oY ])
+						} else if(level.data[i].type == 'bridge') {
+							var red = level.data[i].color[0] / 255., 
+								green = level.data[i].color[1] / 255., 
+								blue = level.data[i].color[2] / 255.
+							let cell1 = level.get(level.data[i].connect[0]), 
+								cell2 = level.get(level.data[i].connect[1])
+
+							var vc = [ cell2.x - cell1.x, 0, cell2.y - cell1.y ]
+
+							var shift = [ -(cell1.x + cell2.x) / 2., 1., -(cell1.y + cell2.y) / 2 ]
+							mat4.translate(worldMatrix, worldMatrix, shift)
+							var angle = vec3.angle(vc, [ 0, 0, 1 ])
+							mat4.rotateY(worldMatrix, worldMatrix, angle)
+							mat4.scale(worldMatrix, worldMatrix, [ .2, .2, .1 * vec3.length(vc) ])
+
+							shaderProgram.setUniform('paintColor', [ red, green, blue ], 'v3')
+							shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
+
+							bridge.render()
+								
+							mat4.scale(worldMatrix, worldMatrix, [ 5, 5, 10 / vec3.length(vc) ])
+							mat4.rotateY(worldMatrix, worldMatrix, -angle)
+							vec3.negate(shift, shift)
+							mat4.translate(worldMatrix, worldMatrix, shift)
 						}
 					}
 				}
@@ -195,7 +201,7 @@ html
 				gridShader = createShaderProgram(gridVertexShaderText, gridFragmentShaderText)
 				gridShader.initUniforms([ 'paintColor', 'projectionMatrix', 'eyeMatrix', 'worldMatrix' ])
 
-				gl.clearColor(.9, .9, .9, 1.0)
+				gl.clearColor(33 / 255., 145 / 255., 251 / 255., 1.0)
 
 				quadVBO = createVBO()
 				quadVBO.setData([ -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1 ])
@@ -230,13 +236,16 @@ html
 				
 				gl.lineWidth(1)
 
-				level = await loadSavedLevel()
+				var buffer = await loadSavedLevel()
+				level = new MapContainer()
+				level.data = buffer.data
 				let scaller = level.sideLength
 				level.sideLength /= scaller
 				for(var i = 0;i < level.data.length;i++)
 					if(level.data[i].type == 'cell')
 						level.data[i].x /= scaller, 
 						level.data[i].y /= scaller
+
 				loop()
 			}
 
@@ -264,17 +273,6 @@ html
 					} else if(ev.keyCode == 82) {
 						camera.reset()
 					}	
-				})
-
-				$(window).on('mousewheel', function(e){
-					var ev = e.originalEvent
-					if(ev.deltaY > 0){
-						bridgeDir++
-					} else {	
-						bridgeDir--
-					}
-
-					bridgeDir = (bridgeDir + 6) % 6
 				})
 
 				var mouseX = undefined, mouseY = undefined, dragging = false

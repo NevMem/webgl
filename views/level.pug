@@ -22,13 +22,40 @@ head
 			position: fixed;
 		}
 
-		#saveButton {
+		#bottomMenu {
+			display: flex;
 			position: fixed;
-			right: 10px;
 			bottom: 10px;
+			right: 10px;
+			flex-direction: row;
+			min-width: 100vw;
+			justify-content: space-around;
+		}
+
+		#bottomMenu label {
+			line-height: 67px;
+		}
+
+		#bottomMenu input[type = 'radio'] {
+			display: none;
+		}
+
+		#bottomMenu input[type = 'radio']:checked + label {
+			color: red;
+		}
+
+		#saveButton {
 			padding: 15 50;
 			font-size: 30px;
 			background-color: red;
+			color: white;
+			cursor: pointer;
+		}
+
+		#linker {
+			background-color: #8BC34A;
+			padding: 15 50;
+			font-size: 30px;
 			color: white;
 			cursor: pointer;
 		}
@@ -46,6 +73,10 @@ head
 			display: flex;
 			flex-direction: row;
 			justify-content: space-between;
+		}
+
+		.bridgeId {
+			color: #26C6DA;
 		}
 
 		input[type = 'range'] {
@@ -70,7 +101,22 @@ head
 		canvas#color-picker
 		canvas#color-icon
 		canvas#frame
-		div#saveButton Save
+
+		div#bottomMenu
+			label.bridgeId#bridgeFirstText undefined
+			label.bridgeId#bridgeSecondText undefined
+			input.myRadio(name = 'group' type = 'radio' id = 'coloring' checked)
+			label(for = 'coloring') COLOR
+			input.myRadio(name = 'group' type = 'radio' id = 'deleting')
+			label(for = 'deleting') DELETE
+			input.myRadio(name = 'group' type = 'radio' id = 'creating')
+			label(for = 'creating') CREATE
+			input.myRadio(name = 'group' type = 'radio' id = 'bridgeFirst')
+			label(for = 'bridgeFirst') BRIDGE FIRST
+			input.myRadio(name = 'group' type = 'radio' id = 'bridgeSecond')
+			label(for = 'bridgeSecond') BRIDGE SECOND
+			div#linker BRIDGE
+			div#saveButton SAVE
 
 		script(src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous")
 		script(src = '/gl-matrix.js')
@@ -85,7 +131,7 @@ head
 				blueChannel = 20, 
 				greenChannel = 220, 
 				alphaChannel = 255, 
-				scale = 1.
+				scale = 2.
 
 			function revalidateSliders(){
 				$('#red')[0].value = redChannel
@@ -95,6 +141,10 @@ head
 
 				data.paintColor = [ redChannel, greenChannel, blueChannel, alphaChannel ]
 			}
+
+			$('input[type = "radio"]').on('input', function(){
+				operation = this.id
+			})
 
 			$('#red').on('input', function(){
 				redChannel = this.value
@@ -268,32 +318,42 @@ head
 				}
 			}
 
+			/*
+				operation:
+					'coloring' is for changing cell/bridge color  <--- DEFAULT
+					'creating' is for creating cell
+					'deleting' is for deleting cell
+					'bridgeFirst' is for setting first bridge cell
+					'bridgeSecond' is for setting second bridge cell	
+			*/
+			var operation = 'coloring', 
+				bridge = [ undefined, undefined ]
+
 			function processClick(x, y){
 				x /= scale
 				y /= scale
-				data.click(x, y)
-				/*for (var i = 0;i < data.graph.length;i++){
-					if(isInsideHexagon(data.graph[i], data.sideLength, [ x, y ])){
-						data.graph[i].color[0] = redChannel
-						data.graph[i].color[1] = greenChannel
-						data.graph[i].color[2] = blueChannel
-						data.graph[i].color[3] = alphaChannel
-						return
-					}
-
-					for(var j = 0;j < 6;j++){
-						if(data.graph[i].dirs[j] == -1){
-							var vec = vecByDir(data.sideLength, j)
-							var nHex = createHexagon(data.graph[i].originX + vec[0], data.graph[i].originY + vec[1])
-
-							if(isInsideHexagon(nHex, data.sideLength, [ x, y ])){
-								updateHexGraph(nHex)
-								data.graph.push(nHex)
-								return
-							}
-						}
-					}
-				}*/
+				if(operation == 'coloring') {
+					data.colorClick(x, y)
+				} else if(operation == 'deleting') {
+					data.deleteClick(x, y)
+				} else if(operation == 'creating') {
+					data.createClick(x, y)
+				} else if(operation == 'bridgeFirst') {
+					var id = data.getIdInPos(x, y)
+					if(id) 
+						bridge[0] = id, $('#bridgeFirstText').text(id)
+					else 
+						bridge[0] = undefined, $('#bridgeFirstText').text('undefined')
+				} else if(operation == 'bridgeSecond') {
+					var id = data.getIdInPos(x, y)
+					if(id) 
+						bridge[1] = id, $('#bridgeSecondText').text(id)
+					else 
+						bridge[1] = undefined, $('#bridgeSecondText').text('undefined')
+				} else {
+					console.log('not implemented command', operation)
+				}
+				//data.click(x, y)
 			}
 
 			async function initLevel(){
@@ -301,6 +361,7 @@ head
 				data = new MapContainer()
 
 				data.data = loadedData.data
+				data.paintColor = loadedData.paintColor
 
 				updateMap()
 			}
@@ -377,6 +438,13 @@ head
 						mouseY = ev.offsetY
 						updateMap()
 					}
+				})
+
+				$('#linker').on('click', function(){
+					if(bridge[0] && bridge[1]) {
+						data.bridge(bridge[0], bridge[1])
+					}
+					updateMap()
 				})
 
 				$('#saveButton').on('click', function(){
