@@ -13,6 +13,10 @@ function getVectorXYZ(a, b){
 	]
 }
 
+function crossVec2(a, b){
+	return a[0] * b[1] - a[1] * b[0]
+}
+
 function rgbaString(color){
 	return 'rgba(' + color[0] + ', ' + color[1] + ', ' + color[2] + ', ' + color[3] + ')'
 }
@@ -84,8 +88,8 @@ function loadSavedLevel(scale){
 			url: '/loadLevel', 
 			method: 'post', 
 			success: function (level){
-				var data = level
-				data.sideLength = parseFloat(data.sideLength) / scale
+				var data = JSON.parse(level)
+				/*data.sideLength = parseFloat(data.sideLength) / scale
 
 				for(var i = 0;i < data.graph.length;i++){
 					data.graph[i].originX = parseFloat(data.graph[i].originX) / scale
@@ -96,7 +100,7 @@ function loadSavedLevel(scale){
 
 					for(var j = 0;j < 6;j++)
 						data.graph[i].dirs[j] = parseFloat(data.graph[i].dirs[j])
-				}
+				}*/
 
 				resolve(data)
 			}, 
@@ -595,24 +599,169 @@ function toRadians(deg){
 class MapUnit{
 	constructor(id){
 		this.id = id
-		this.color = [ 0, 192, 0 ]
+		this.type = 'unknown'
+		this.color = [ 0, 192, 0, 255 ]
 		this.setColor = (color) => { this.color = color }
 	}
 }
 class Cell extends MapUnit{
-	constructor(id){
+	constructor(id, x, y){
 		super(id)
 
+		if (x == undefined || y == undefined)
+			console.error('X and Y undefined')
+
 		this.type = 'cell'
-		this.connections = []
+		this.connection = []
+		this.x = x
+		this.y = y
+
 		for(var i = 0;i < 6;i++)
-			this.connections.push(undefined)
+			this.connection.push(undefined)
 	}
 }
 class Bridge extends MapUnit{
-	constructor(id){
+	constructor(id, first, second){
 		super(id)
-
+		this.connect = [ first, second ]
 		this.type = 'bridge'
+	}
+}
+class MapContainer {
+	constructor(){
+		this.data = []
+		this.idLength = 10	
+		this.sideLength = 20
+		this.paintColor = [ 10, 10, 10, 255 ]
+
+		let a = this.sideLength / 2, 
+			b = this.sideLength * Math.sqrt(3) / 2.0, 
+			c = this.sideLength
+
+		this.cellPoints = [
+			[ a, b ], 
+			[ -a, b ], 
+			[ -c, 0 ], 
+			[ -a, -b ], 
+			[ a, -b ], 
+			[ c, 0 ]
+		]
+
+		this.getId = function() {
+			var id = ''
+			for(var i = 0;i < this.idLength;i++)
+				id += (Math.random() < .3 ? 
+					String.fromCharCode('0'.charCodeAt(0) + (Math.random() * 10. | 0)) : 
+					String.fromCharCode('a'.charCodeAt(0) + (Math.random() * 26. | 0)))
+			return id
+		}
+
+		this.addNewCell = function(x, y){
+			console.log('Adding new cell in ', x, y)
+
+			var id = this.getId()
+			var cell = new Cell(id, x, y)
+			cell.color = this.paintColor
+			this.data.push(cell)
+			return id
+		}
+
+		this.get = function(id) {
+			for(var i = 0;i < this.data.length;i++)
+				if(this.data[i].id == id)
+					return this.data[i]
+		}
+
+		this.delete = function(id) {
+			for(var i = 0;i < this.data.length;i++)
+				if(this.data[i].id == id){
+					this.data.splice(i, 1)
+					break
+				}
+		}
+
+		this.renderCell = function(g, cell){
+			g.translate(cell.x, cell.y)
+
+			g.fillStyle = rgbaString(cell.color)
+			
+			g.beginPath()
+			g.moveTo(this.cellPoints[0][0], this.cellPoints[0][1])
+			for(var i = 1;i < 6;i++)
+				g.lineTo(this.cellPoints[i][0], this.cellPoints[i][1])
+			g.closePath()
+			g.fill()
+
+			g.translate(-cell.x, -cell.y)
+		}
+
+		this.getCellCoords = function(direction) {
+			var ret = [ 
+				this.cellPoints[direction][0] + this.cellPoints[(direction + 1) % 6][0],
+				this.cellPoints[direction][1] + this.cellPoints[(direction + 1) % 6][1] 
+			]
+			return ret
+		}
+
+		this.updateConnectionsBy = function(cell){
+			for(var i = 0;i < this.data.length;i++){
+				if(this.data[i].id != cell.id){
+					var vc = [ cell.x - this.data[i].x, cell.y - this.data[i].y ]
+					for(var j = 0;j < 6;j++){
+						if(crossVec2(vc, this.cellPoints[j]) < 0 && 
+							crossVec2(this.cellPoints[(j + 1) % 6], vc) < 0)
+							this.data[i].connection[j] = cell.id
+					}
+				}
+			}
+		}
+
+		this.click = function(x, y){
+			for(var i = 0;i < this.data.length;i++){
+				if(this.data[i].type == 'cell'){
+					x -= this.data[i].x 
+					y -= this.data[i].y
+
+					if(x * x + y * y <= this.sideLength * this.sideLength * 3 / 4) {
+						this.data[i].color = this.paintColor
+						return
+					} else if (x * x + y * y <= this.sideLength * this.sideLength * 2) {
+						var vc = [ x, y ]
+						for(var j = 0;j < 6;j++){
+							if(crossVec2(vc, this.cellPoints[j]) < 0 && 
+								crossVec2(this.cellPoints[(j + 1) % 6], vc) < 0 && 
+								this.data[i].connection[j] == undefined){
+
+								let nPoint = this.getCellCoords(j)
+
+								this.data[i].connection[j] = this.addNewCell(this.data[i].x + nPoint[0], this.data[i].y + nPoint[1])
+								this.updateConnectionsBy(this.get(this.data[i].connection[j]))
+
+								return
+							}
+						}
+					}
+
+					x += this.data[i].x
+					y += this.data[i].y
+				} else if(this.data[i].type == 'bridge') {
+
+				}
+			}
+		}
+
+		this.renderBridge = function(g, bridge) {
+
+		}
+ 
+		this.render = function(g){
+			for (let unit of this.data){
+				if(unit.type == 'cell') {
+					this.renderCell(g, unit)
+				} else {
+					this.renderBridge(g, unit)
+				}
+			}
+		}
 	}
 }

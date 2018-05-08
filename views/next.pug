@@ -75,39 +75,41 @@ html
 				shaderProgram.setUniform('lightPosition', camera.getPosition(), 'v3')
 
 				if(level){
-					for(var i = 0;i < level.graph.length;i++){
-						var oX = level.graph[i].originX, 
-							oY = level.graph[i].originY, 
-							red = level.graph[i].color[0] / 255., 
-							green = level.graph[i].color[1] / 255., 
-							blue = level.graph[i].color[2] / 255.
+					for(var i = 0;i < level.data.length;i++){
+						if(level.data[i].type == 'cell'){
+							var oX = level.data[i].x, 
+								oY = level.data[i].y, 
+								red = level.data[i].color[0] / 255., 
+								green = level.data[i].color[1] / 255., 
+								blue = level.data[i].color[2] / 255.
 
-						mat4.translate(worldMatrix, worldMatrix, [ -oX, 0, -oY ])
-						mat4.scale(worldMatrix, worldMatrix, [ 1., (i + 1) / 10., 1. ])
-						shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
-						shaderProgram.setUniform('paintColor', [ red, green, blue ], 'v3')
-
-						hexagon.render()
-
-						mat4.scale(worldMatrix, worldMatrix, [ 1., 10. / (i + 1), 1. ])
-
-						if(pos == i) { 
-							var scaller = [ .1, .1, .1 ], shift = vecByDir(1., bridgeDir)
-
-							shift = [ shift[0] / 2., 1., shift[1] / 2. ]							
-
-							mat4.translate(worldMatrix, worldMatrix, shift)
-							mat4.scale(worldMatrix, worldMatrix, scaller)
+							mat4.translate(worldMatrix, worldMatrix, [ -oX, 0, -oY ])
+							mat4.scale(worldMatrix, worldMatrix, [ 1. * level.sideLength, (i + 1) / 10. * level.sideLength, 1. * level.sideLength ])
 							shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
-							
-							bridge.render()
+							shaderProgram.setUniform('paintColor', [ red, green, blue ], 'v3')
 
-							mat4.scale(worldMatrix, worldMatrix, [ 1. / scaller[0], 1. / scaller[1], 1. / scaller[2] ])
-							vec3.negate(shift, shift)
-							mat4.translate(worldMatrix, worldMatrix, shift)
+							hexagon.render()
+
+							mat4.scale(worldMatrix, worldMatrix, [ 1. / level.sideLength, 10. / (i + 1) / level.sideLength, 1. / level.sideLength ])
+
+							if(pos == i) { 
+								var scaller = [ .1, .1, .1 ], shift = vecByDir(1., bridgeDir)
+
+								shift = [ shift[0] / 2., 1., shift[1] / 2. ]							
+
+								mat4.translate(worldMatrix, worldMatrix, shift)
+								mat4.scale(worldMatrix, worldMatrix, scaller)
+								shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
+								
+								bridge.render()
+
+								mat4.scale(worldMatrix, worldMatrix, [ 1. / scaller[0], 1. / scaller[1], 1. / scaller[2] ])
+								vec3.negate(shift, shift)
+								mat4.translate(worldMatrix, worldMatrix, shift)
+							}
+
+							mat4.translate(worldMatrix, worldMatrix, [ oX, 0, oY ])
 						}
-
-						mat4.translate(worldMatrix, worldMatrix, [ oX, 0, oY ])
 					}
 				}
 
@@ -228,7 +230,13 @@ html
 				
 				gl.lineWidth(1)
 
-				level = await loadSavedLevel(20.)
+				level = await loadSavedLevel()
+				let scaller = level.sideLength
+				level.sideLength /= scaller
+				for(var i = 0;i < level.data.length;i++)
+					if(level.data[i].type == 'cell')
+						level.data[i].x /= scaller, 
+						level.data[i].y /= scaller
 				loop()
 			}
 
