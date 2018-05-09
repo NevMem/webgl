@@ -656,9 +656,7 @@ class MapContainer {
 			return id
 		}
 
-		this.addNewCell = function(x, y){
-			console.log('Adding new cell in ', x, y)
-
+		this.addNewCell = function(x, y)
 			var id = this.getId()
 			var cell = new Cell(id, x, y)
 			cell.color = this.paintColor
