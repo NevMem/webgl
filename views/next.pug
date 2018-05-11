@@ -31,8 +31,8 @@ html
 			var model
 			var startTimePoint = Date.now()
 			var eyeMatrix = new Float32Array(16), 
-				worldMatrix = new Float32Array(16), 
-				projectionMatrix = new Float32Array(16)
+				projectionMatrix = new Float32Array(16), 
+				worldMatrix = new MatrixStack()
 			var camera
 			var hexagon, bridge, grid
 
@@ -42,7 +42,7 @@ html
 				gridShader.start()
 
 				gridShader.setUniform('eyeMatrix', camera.getEyeMatrix(), 'mat4')
-				gridShader.setUniform('worldMatrix', worldMatrix, 'mat4')
+				gridShader.setUniform('worldMatrix', worldMatrix.get(), 'mat4')
 				gridShader.setUniform('projectionMatrix', projectionMatrix, 'mat4')
 
 				gridShader.setUniform('paintColor', [ .2, .2, .2 ], 'v3')
@@ -63,9 +63,10 @@ html
 
 				shaderProgram.start()
 
-				mat4.identity(worldMatrix)
+				worldMatrix.clear()
+
 				shaderProgram.setUniform('eyeMatrix', camera.getEyeMatrix(), 'mat4')
-				shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
+				shaderProgram.setUniform('worldMatrix', worldMatrix.get(), 'mat4')
 				shaderProgram.setUniform('projectionMatrix', projectionMatrix, 'mat4')
 
 				shaderProgram.setUniform('paintColor', [ .5, .9, .5 ], 'v3')
@@ -81,16 +82,15 @@ html
 								green = level.data[i].color[1] / 255., 
 								blue = level.data[i].color[2] / 255.
 
-							mat4.translate(worldMatrix, worldMatrix, [ -oX, 0, -oY ])
-							mat4.scale(worldMatrix, worldMatrix, [ 1. * level.sideLength, .5 * level.sideLength, 1. * level.sideLength ])
-							shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
+							worldMatrix.translate([ -oX, 0, -oY ])
+							worldMatrix.scale([ 1. * level.sideLength, .5 * level.sideLength, 1. * level.sideLength ])
+							shaderProgram.setUniform('worldMatrix', worldMatrix.get(), 'mat4')
 							shaderProgram.setUniform('paintColor', [ red, green, blue ], 'v3')
 
 							hexagon.render()
 
-							mat4.scale(worldMatrix, worldMatrix, [ 1. / level.sideLength, 1. / .5 / level.sideLength, 1. / level.sideLength ])
-
-							mat4.translate(worldMatrix, worldMatrix, [ oX, 0, oY ])
+							worldMatrix.back()
+							worldMatrix.back()
 						} else if(level.data[i].type == 'bridge') {
 							var red = level.data[i].color[0] / 255., 
 								green = level.data[i].color[1] / 255., 
@@ -101,20 +101,19 @@ html
 							var vc = [ cell2.x - cell1.x, 0, cell2.y - cell1.y ]
 
 							var shift = [ -(cell1.x + cell2.x) / 2., .5, -(cell1.y + cell2.y) / 2 ]
-							mat4.translate(worldMatrix, worldMatrix, shift)
+							worldMatrix.translate(shift)
 							var angle = vec3.angle(vc, [ 0, 0, 1 ])
-							mat4.rotateY(worldMatrix, worldMatrix, angle)
-							mat4.scale(worldMatrix, worldMatrix, [ .2, .2, .1 * vec3.length(vc) ])
-
+							worldMatrix.rotateY(angle)
+							worldMatrix.scale([ .2, .2, .1 * vec3.length(vc) ])
+							
 							shaderProgram.setUniform('paintColor', [ red, green, blue ], 'v3')
-							shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
+							shaderProgram.setUniform('worldMatrix', worldMatrix.get(), 'mat4')
 
 							bridge.render()
-								
-							mat4.scale(worldMatrix, worldMatrix, [ 5, 5, 10 / vec3.length(vc) ])
-							mat4.rotateY(worldMatrix, worldMatrix, -angle)
-							vec3.negate(shift, shift)
-							mat4.translate(worldMatrix, worldMatrix, shift)
+							
+							worldMatrix.back()
+							worldMatrix.back()
+							worldMatrix.back()	
 						}
 					}
 				}
@@ -156,14 +155,9 @@ html
 				postProcessingShaderProgram.stop()
 			}
 
-			var tick = 0
 			function loop(){
-				++tick
-
 				renderWorld()				
-
 				postProcessing()				
-
 				/* NEXT FRAME REQUEST */
 				requestAnimationFrame(loop)
 			}

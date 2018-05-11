@@ -884,6 +884,9 @@ class MatrixStack {
 			this.stack.push(new Float32Array(16))
 			mat4.identity(this.stack[i])
 		}
+		this.clear = function() {
+			this.pointer = 1
+		}
 		this.translate = function(v3) {
 			mat4.translate(this.stack[this.pointer], this.stack[this.pointer - 1], v3)
 			this.pointer++
@@ -900,12 +903,15 @@ class MatrixStack {
 		}
 		this.rotateX = function(angle) {
 			mat4.rotateX(this.stack[this.pointer], this.stack[this.pointer - 1], angle)
+			this.pointer++
 		}
 		this.rotateY = function(angle) {
 			mat4.rotateY(this.stack[this.pointer], this.stack[this.pointer - 1], angle)
+			this.pointer++
 		}
 		this.rotateZ = function(angle) {
 			mat4.rotateZ(this.stack[this.pointer], this.stack[this.pointer - 1], angle)
+			this.pointer++
 		}
 	}
 }
