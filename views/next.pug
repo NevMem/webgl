@@ -82,13 +82,13 @@ html
 								blue = level.data[i].color[2] / 255.
 
 							mat4.translate(worldMatrix, worldMatrix, [ -oX, 0, -oY ])
-							mat4.scale(worldMatrix, worldMatrix, [ 1. * level.sideLength, 1. * level.sideLength, 1. * level.sideLength ])
+							mat4.scale(worldMatrix, worldMatrix, [ 1. * level.sideLength, .5 * level.sideLength, 1. * level.sideLength ])
 							shaderProgram.setUniform('worldMatrix', worldMatrix, 'mat4')
 							shaderProgram.setUniform('paintColor', [ red, green, blue ], 'v3')
 
 							hexagon.render()
 
-							mat4.scale(worldMatrix, worldMatrix, [ 1. / level.sideLength, 1. / level.sideLength, 1. / level.sideLength ])
+							mat4.scale(worldMatrix, worldMatrix, [ 1. / level.sideLength, 1. / .5 / level.sideLength, 1. / level.sideLength ])
 
 							mat4.translate(worldMatrix, worldMatrix, [ oX, 0, oY ])
 						} else if(level.data[i].type == 'bridge') {
@@ -100,7 +100,7 @@ html
 
 							var vc = [ cell2.x - cell1.x, 0, cell2.y - cell1.y ]
 
-							var shift = [ -(cell1.x + cell2.x) / 2., 1., -(cell1.y + cell2.y) / 2 ]
+							var shift = [ -(cell1.x + cell2.x) / 2., .5, -(cell1.y + cell2.y) / 2 ]
 							mat4.translate(worldMatrix, worldMatrix, shift)
 							var angle = vec3.angle(vc, [ 0, 0, 1 ])
 							mat4.rotateY(worldMatrix, worldMatrix, angle)
@@ -201,7 +201,7 @@ html
 				gridShader = createShaderProgram(gridVertexShaderText, gridFragmentShaderText)
 				gridShader.initUniforms([ 'paintColor', 'projectionMatrix', 'eyeMatrix', 'worldMatrix' ])
 
-				gl.clearColor(33 / 255., 145 / 255., 251 / 255., 1.0)
+				gl.clearColor(220 / 255., 220 / 255., 220 / 255., 1.0)
 
 				quadVBO = createVBO()
 				quadVBO.setData([ -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1 ])

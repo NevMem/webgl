@@ -656,7 +656,7 @@ class MapContainer {
 			return id
 		}
 
-		this.addNewCell = function(x, y)
+		this.addNewCell = function(x, y) {
 			var id = this.getId()
 			var cell = new Cell(id, x, y)
 			cell.color = this.paintColor
@@ -871,6 +871,41 @@ class MapContainer {
 					this.renderBridge(g, unit)
 				}
 			}
+		}
+	}
+}
+
+class MatrixStack {
+	constructor() {
+		this.stack = []
+		this.pointer = 1
+		this.MAX_SIZE = 32
+		for(var i = 0;i < this.MAX_SIZE;i++){
+			this.stack.push(new Float32Array(16))
+			mat4.identity(this.stack[i])
+		}
+		this.translate = function(v3) {
+			mat4.translate(this.stack[this.pointer], this.stack[this.pointer - 1], v3)
+			this.pointer++
+		}
+		this.get = function() { 
+			return this.stack[this.pointer - 1]
+		}
+		this.scale = function(s3) { 
+			mat4.scale(this.stack[this.pointer], this.stack[this.pointer - 1], s3)
+			this.pointer++
+		}
+		this.back = function() { 
+			this.pointer--
+		}
+		this.rotateX = function(angle) {
+			mat4.rotateX(this.stack[this.pointer], this.stack[this.pointer - 1], angle)
+		}
+		this.rotateY = function(angle) {
+			mat4.rotateY(this.stack[this.pointer], this.stack[this.pointer - 1], angle)
+		}
+		this.rotateZ = function(angle) {
+			mat4.rotateZ(this.stack[this.pointer], this.stack[this.pointer - 1], angle)
 		}
 	}
 }
