@@ -12,8 +12,12 @@ app.use(bParser.json())
 app.use(bParser.urlencoded({extended: true}))
 
 app.use(function(req, res, next){
-
-	console.log('[' + req.method + '] ' + req.url.cyan)
+	var ip = (req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress || req.connection.socket.remoteAddress).split(",")[0];
+	console.log(req.headers['x-forwarded-for'], 
+		(req.connection ? req.connection.remoteAddress : 'none'), 
+		(req.socket ? req.socket.remoteAddress : 'none'), 
+		(req.connection && req.connection.socket ? req.connection.socket.remoteAddress : 'none'))
+	console.log('[' + req.method + '] ' + ip + ' ' + req.url.cyan)
 
 	next()
 })
@@ -32,13 +36,30 @@ app.get('/level', function(req, res){
 	res.render('level')
 })
 
-app.post('/res', function(req, res){
-	var name = req.body.name
+app.get('/webgpgpu', function(req, res){
+	res.render('webgpgpu')
+})
+
+app.get('/color', function(req, res){
+	res.render('color')
+})
+
+function resourceHandler(name, res){
 	if(fs.existsSync(__dirname + '/resources/' + name)){
 		res.sendFile(__dirname + '/resources/' + name)
 	} else {
 		res.send('404')
 	}
+}
+
+app.post('/res', function(req, res){
+	var name = req.body.name
+	resourceHandler(name, res)
+})
+
+app.get('/res', function(req, res){
+	var name = url.parse(req.url, true).query.name
+	resourceHandler(name, res)
 })
 
 app.post('/saveData', function(req, res){

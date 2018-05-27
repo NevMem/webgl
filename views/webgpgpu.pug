@@ -1,0 +1,231 @@
+html
+	head 
+		meta(charset = 'utf-8')
+		style.
+			* {
+				padding: 0 0;
+				margin: 0 0;
+			}
+
+			.menu {
+				position: fixed;
+				left: 0px;
+				bottom: 0px;
+				padding: 10px 10px;
+				color: black;
+			}
+	body(onresize = 'resize()')
+		canvas#frame
+		script(src = "https://code.jquery.com/jquery-3.3.1.min.js")
+		script(src = '/gl-matrix.js')
+		script(src = '/scripts.js')
+		script.
+			var gl, width, height, 
+				quad, shader, textureA, textureB, outTexture, fb, n = 16
+
+			function resize() {
+				$('#frame')[0].width = width = window.innerWidth
+				$('#frame')[0].height = height = window.innerHeight
+				gl = $('#frame')[0].getContext('webgl2')
+			}
+
+			function multiply() {
+				gl.bindFramebuffer(gl.FRAMEBUFFER, fb)
+				gl.viewport(0, 0, n, n)
+				gl.clear(gl.COLOR_BUFFER_BIT)
+
+				shader.start()
+				quad.bind()
+
+				var loc = shader.getAttributeLocation('position'), loctex = shader.getAttributeLocation('inTexCoord')
+				gl.enableVertexAttribArray(loc)
+				gl.vertexAttribPointer(loc, 2, gl.FLOAT, gl.FALSE, 4 * Float32Array.BYTES_PER_ELEMENT, 0)
+				gl.enableVertexAttribArray(loctex)
+				gl.vertexAttribPointer(loctex, 2, gl.FLOAT, gl.FALSE, 4 * Float32Array.BYTES_PER_ELEMENT, 2 * Float32Array.BYTES_PER_ELEMENT)
+				gl.activeTexture(gl.TEXTURE0)
+				gl.bindTexture(gl.TEXTURE_2D, textureA)
+
+				gl.activeTexture(gl.TEXTURE1)
+				gl.bindTexture(gl.TEXTURE_2D, textureB)
+
+				shader.setUniform('tex1', 0, 'i')
+				shader.setUniform('tex2', 1, 'i')
+
+				gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+				quad.unbind()
+
+				var out = new Uint8Array(n * n * 4)
+				gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, out, 0)
+				
+				var ret = []
+				for(var i = 0;i < n;i++){
+					ret.push([])
+					for(var j = 0;j < n;j++){
+						ret[i].push(0)
+					}
+				}
+
+				for(var i = 0;i < n;i++){
+					for(var j = 0;j < n;j++){
+						let s = j * n + i
+						s <<= 2
+						let val = (out[s] << 24) + (out[s + 1] << 16) + (out[s + 2] << 8) + out[s + 3]
+						ret[i][j] = val
+					}
+				}
+				return ret
+			}
+
+			async function initGL() {
+				let vShaderText, fShaderText
+				await loadResource('vShader.glsl').then(function(data){
+					vShaderText = data
+					return loadResource('fShader.glsl')
+				}).then(function(data){
+					fShaderText = data
+				})
+
+				shader = createShaderProgram(vShaderText, fShaderText)
+				shader.initUniforms([ 'tex1', 'tex2' ])
+
+				quad = createVBO()
+				quad.setData([ -1, -1, 0, 0, 
+								1, -1, 1, 0, 
+								-1, 1, 0, 1, 
+								1, -1, 1, 0, 
+								-1, 1, 0, 1, 
+								1, 1, 1, 1
+							])
+
+				let arrA = [], arrB = [], arrC = []
+				for(var i = 0;i < n;i++){
+					arrA.push([])
+					for(var j = 0;j < n;j++)
+						arrA[i].push(0)
+				}
+
+				for(var i = 0;i < n;i++) {
+					arrB.push([])
+					for(var j = 0;j < n;j++)
+						arrB[i].push(0)
+				}
+
+				for(var i = 0;i < n;i++) {
+					arrC.push([])
+					for(var j = 0;j < n;j++)
+						arrC[i].push(0)
+				}
+
+				for(var i = 0;i < n;i++)
+					for(var j = 0;j < n;j++)
+						arrA[i][j] = i * n + j + 1
+
+				for(var i = 0;i < n;i++)
+					for(var j = 0;j < n;j++)
+						arrB[i][j] = i + 1
+
+				let start = Date.now()
+				for(var i = 0;i < n;i++)
+					for(var j = 0;j < n;j++)
+						for(var k = 0;k < n;k++)
+							arrC[i][j] += arrA[i][k] * arrB[k][j]
+				let basicMul = Date.now() - start
+	
+				start = Date.now()
+				var tx1 = new Uint8Array(n * n * 4);
+				let shift = 0
+				for(var i = 0;i < arrA.length;i++){
+					for(var j = 0;j < arrA[i].length;j++){
+						tx1[shift * 4] = (arrA[i][j] & 0xFF000000) >> 24
+						tx1[shift * 4 + 1] = (arrA[i][j] & 0xFF0000) >> 16
+						tx1[shift * 4 + 2] = (arrA[i][j] & 0xFF00) >> 8
+						tx1[shift * 4 + 3] = (arrA[i][j] & 0xFF)
+						shift += 1
+					}
+				}
+
+				var tx2 = new Uint8Array(n * n * 4)
+				shift = 0
+				for(var i = 0;i < arrB.length;i++){
+					for(var j = 0;j < arrB[i].length;j++){
+						tx2[shift * 4] = (arrB[i][j] & 0xFF000000) >> 24
+						tx2[shift * 4 + 1] = (arrB[i][j] & 0xFF0000) >> 16
+						tx2[shift * 4 + 2] = (arrB[i][j] & 0xFF00) >> 8
+						tx2[shift * 4 + 3] = (arrB[i][j] & 0xFF)
+						shift += 1
+					}
+				}
+
+				textureA = createTexture(n, n)
+				gl.bindTexture(gl.TEXTURE_2D, textureA)
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0, gl.RGBA, gl.UNSIGNED_BYTE, tx1)
+
+				textureB = createTexture(n, n)
+				gl.bindTexture(gl.TEXTURE_2D, textureB)
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0, gl.RGBA, gl.UNSIGNED_BYTE, tx2)
+
+				outTexture = createTexture(n, n)
+				fb = createFramebuffer(outTexture)
+				
+				gl.clearColor(.0, .0, .0, 1.)
+				
+				let check = multiply()
+				let gpgpuMul = Date.now() - start
+				let ok = true
+				for(var i = 0;i < n;i++){
+					for(var j = 0;j < n;j++){
+						if(check[i][j] != arrC[i][j]){
+							ok = false
+							console.log(i, j, check[i][j], arrC[i][j], arrC[i][j] - check[i][j])
+						}
+					}
+				}
+
+				/*for(var i = 0;i < n;i++){
+					let line = ''
+					for(var j = 0;j < n;j++){
+						line += arrA[i][j] + ' '
+					}
+					console.log(line)
+				}
+				console.log(' ')
+
+				for(var i = 0;i < n;i++){
+					let line = ''
+					for(var j = 0;j < n;j++){
+						line += arrB[i][j] + ' '
+					}
+					console.log(line)
+				}
+				console.log(' ')
+
+				for(var i = 0;i < n;i++){
+					let line = ''
+					for(var j = 0;j < n;j++){
+						line += check[i][j] + ' '
+					}
+					console.log(line)
+				}
+				console.log(' ')
+				for(var i = 0;i < n;i++){
+					let line = ''
+					for(var j = 0;j < n;j++){
+						line += arrC[i][j] + ' '
+					}
+					console.log(line)
+				}*/
+
+				if(ok)
+					console.log('passed')
+				else
+					console.log('wrong')
+				console.log('basic multiplication', basicMul)
+				console.log('GPGPU multiplication', gpgpuMul)
+			}
+
+			$(document).ready(function() {
+				resize()
+				
+				initGL()
+			})

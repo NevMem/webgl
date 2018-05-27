@@ -104,7 +104,7 @@ html
 							worldMatrix.translate(shift)
 							var angle = vec3.angle(vc, [ 0, 0, 1 ])
 							worldMatrix.rotateY(angle)
-							worldMatrix.scale([ .2, .2, .1 * vec3.length(vc) ])
+							worldMatrix.scale([ .2, .2, .1 * (vec3.length(vc) - 1.5) ])
 							
 							shaderProgram.setUniform('paintColor', [ red, green, blue ], 'v3')
 							shaderProgram.setUniform('worldMatrix', worldMatrix.get(), 'mat4')
@@ -167,7 +167,8 @@ html
 					
 				var vShaderText, fShaderText, ftShaderText, vtShaderText, gridVertexShaderText, gridFragmentShaderText
 
-				await loadResource('vertexBasic.glsl').then(function(data){
+				await loadResource('vertexBasic.glsl')
+				.then(function(data){
 					vShaderText = data
 					return loadResource('fragmentBasic.glsl')
 				}).then(function(data){
@@ -195,7 +196,7 @@ html
 				gridShader = createShaderProgram(gridVertexShaderText, gridFragmentShaderText)
 				gridShader.initUniforms([ 'paintColor', 'projectionMatrix', 'eyeMatrix', 'worldMatrix' ])
 
-				gl.clearColor(220 / 255., 220 / 255., 220 / 255., 1.0)
+				gl.clearColor(240 / 255., 240 / 255., 240 / 255., 1.0)
 
 				quadVBO = createVBO()
 				quadVBO.setData([ -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1 ])

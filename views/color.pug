@@ -1,0 +1,168 @@
+html
+	head 
+		meta(charset = 'utf-8')
+		style.
+			* {
+				padding: 0 0;
+				margin: 0 0;
+			}
+
+			.menu {
+				position: fixed;
+				right: 0px;
+				top: 0px;
+				padding: 10px 10px;
+				color: black;
+			}
+
+			.row {
+				display: flex;
+				flex-direction: row;
+			}
+
+			.row > input[type = 'text'] {
+				margin: 10px 10px;
+				padding: 10px 10px;
+				line-height: 40px;
+				font-size: 40px;
+				width: 80px;
+			}
+	body(onresize = 'resize()')
+		canvas#frame
+		#controls.menu
+			.row
+				input(type = 'text')
+				input(type = 'text')
+				input(type = 'text')
+				input(type = 'text')
+			.row
+				input(type = 'text')
+				input(type = 'text')
+				input(type = 'text')
+				input(type = 'text')
+			.row
+				input(type = 'text')
+				input(type = 'text')
+				input(type = 'text')
+				input(type = 'text')
+			.row
+				input(type = 'text')
+				input(type = 'text')
+				input(type = 'text')
+				input(type = 'text')
+			
+		script(src = "https://code.jquery.com/jquery-3.3.1.min.js")
+		script(src = '/gl-matrix.js')
+		script(src = '/scripts.js')
+		script.
+			var gl, width, height, size = undefined, 
+				quad, shader, texture, fb, frame, colorTranformMatrix = new Float32Array(16)
+
+			function resize() {
+				if(!size){
+					$('#frame')[0].width = width = window.innerWidth
+					$('#frame')[0].height = height = window.innerHeight
+					gl = $('#frame')[0].getContext('webgl2')
+				} else {
+					$('#frame')[0].width = width = size.width
+					$('#frame')[0].height = height = size.height
+					gl = $('#frame')[0].getContext('webgl2')
+				}
+				frame = $('#frame')[0]
+				//$('body')[0].width = frame.width
+				//$('body')[0].height = frame.height
+				gl.viewport(0, 0, frame.width, frame.height)
+			}
+
+			function setControls(){
+				for(var i = 0;i < 16;i++){
+					let x = i / 4 | 0, y = i % 4
+					$('#controls').eq(0).children().eq(y).children().eq(x)[0].value = (colorTranformMatrix[i])
+					$('#controls').eq(0).children().eq(y).children().eq(x)[0].id = '' + i
+				}
+			}
+
+			function render() {
+				//buildMatrix()
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+				gl.clear(gl.COLOR_BUFFER_BIT)
+
+				shader.start()
+				quad.bind()
+
+				var loc = shader.getAttributeLocation('position'), loctex = shader.getAttributeLocation('inTexCoord')
+				gl.enableVertexAttribArray(loc)
+				gl.vertexAttribPointer(loc, 2, gl.FLOAT, gl.FALSE, 4 * Float32Array.BYTES_PER_ELEMENT, 0)
+				gl.enableVertexAttribArray(loctex)
+				gl.vertexAttribPointer(loctex, 2, gl.FLOAT, gl.FALSE, 4 * Float32Array.BYTES_PER_ELEMENT, 2 * Float32Array.BYTES_PER_ELEMENT)
+				gl.activeTexture(gl.TEXTURE0)
+				gl.bindTexture(gl.TEXTURE_2D, texture)
+
+				shader.setUniform('tx', 0, 'i')
+				shader.setUniform('colorTransform', colorTranformMatrix, 'mat4')
+
+				gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+				quad.unbind()
+
+				requestAnimationFrame(render)
+			}
+
+			async function initGL() {
+				let vShaderText, fShaderText
+				await loadResource('vShader.glsl').then(function(data){
+					vShaderText = data
+					return loadResource('fShader2.glsl')
+				}).then(function(data){
+					fShaderText = data
+				})
+
+				let image = new Image()
+				image.src = 'res?name=smoke.jpg'
+				image.onload = function(){
+					console.log(image.width, image.height)
+					texture = createTexture(image.width, image.height)
+					gl.bindTexture(gl.TEXTURE_2D, texture)
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, image.width, image.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, image)
+					size = { width: image.width / 2, height: image.height / 2 }
+					resize()
+				}
+
+				shader = createShaderProgram(vShaderText, fShaderText)
+				shader.initUniforms([ 'tx', 'colorTransform' ])
+
+				quad = createVBO()
+				quad.setData([ -1, -1, 1, 1, 
+								1, -1, 0, 1, 
+								-1, 1, 1, 0, 
+								1, -1, 0, 1, 
+								-1, 1, 1, 0, 
+								1, 1, 0, 0
+							])
+
+				texture = createTexture(frame.width, frame.height)
+				
+				render()
+			}
+
+			function parseValue(value){
+				value = value.replace(/[\\/,]/g, '.')
+				value = parseFloat(value)
+				if (isNaN(value))
+					value = 0
+				return value
+			}
+
+			$(document).ready(function() {
+				mat4.identity(colorTranformMatrix)
+				setControls()
+				$('#controls input').on('input', function(){
+					console.log(this.id + ' ' + this.value)
+					let st = parseValue(this.value)
+					console.log(st)
+					colorTranformMatrix[parseInt(this.id)] = st
+				})
+				resize()
+				
+				initGL()
+			})
