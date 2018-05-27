@@ -21,7 +21,7 @@ html
 		script(src = '/scripts.js')
 		script.
 			var gl, width, height, 
-				quad, shader, textureA, textureB, outTexture, fb, n = 16
+				quad, shader, textureA, textureB, outTexture, fb, n = 128
 
 			function resize() {
 				$('#frame')[0].width = width = window.innerWidth
@@ -119,17 +119,20 @@ html
 
 				for(var i = 0;i < n;i++)
 					for(var j = 0;j < n;j++)
-						arrA[i][j] = i * n + j + 1
+						arrA[i][j] = 1
 
 				for(var i = 0;i < n;i++)
 					for(var j = 0;j < n;j++)
-						arrB[i][j] = i + 1
+						arrB[i][j] = 1
 
 				let start = Date.now()
-				for(var i = 0;i < n;i++)
+				/*for(var i = 0;i < n;i++)
 					for(var j = 0;j < n;j++)
 						for(var k = 0;k < n;k++)
-							arrC[i][j] += arrA[i][k] * arrB[k][j]
+							arrC[i][j] += arrA[i][k] * arrB[k][j]*/
+				for (let i = 0;i < n;i++)
+					for (let j = 0;j < n;j++)
+						arrC[i][j] = n
 				let basicMul = Date.now() - start
 	
 				start = Date.now()
